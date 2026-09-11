@@ -140,7 +140,41 @@ class GameSettings {
         bankName: identical(bankName, _unset) ? this.bankName : bankName as String?,
         bankQuestionCount: bankQuestionCount ?? this.bankQuestionCount,
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GameSettings &&
+          other.rounds == rounds &&
+          listEq(other.multipliers, multipliers) &&
+          other.strikesToSteal == strikesToSteal &&
+          other.answerSeconds == answerSeconds &&
+          other.choiceSeconds == choiceSeconds &&
+          mapEq(other.teamNames, teamNames) &&
+          other.roomName == roomName &&
+          other.minAnswers == minAnswers &&
+          other.maxAnswers == maxAnswers &&
+          other.bankName == bankName &&
+          other.bankQuestionCount == bankQuestionCount);
+
+  @override
+  int get hashCode => Object.hashAll([
+        rounds,
+        Object.hashAll(multipliers),
+        strikesToSteal,
+        answerSeconds,
+        choiceSeconds,
+        _mapHash(teamNames),
+        roomName,
+        minAnswers,
+        maxAnswers,
+        bankName,
+        bankQuestionCount,
+      ]);
 }
+
+int _mapHash(Map<Object?, Object?> map) =>
+    map.entries.fold(0, (acc, e) => acc ^ Object.hash(e.key, e.value));
 
 bool _isBlank(String s) => s.trim().isEmpty;
 

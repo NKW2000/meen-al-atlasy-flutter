@@ -117,8 +117,16 @@ extension TeamIdX on TeamId {
 
   String get wire => this == TeamId.team1 ? 'TEAM_1' : 'TEAM_2';
 
-  static TeamId fromWire(String wire) =>
-      wire == 'TEAM_1' ? TeamId.team1 : TeamId.team2;
+  static TeamId fromWire(String wire) {
+    switch (wire) {
+      case 'TEAM_1':
+        return TeamId.team1;
+      case 'TEAM_2':
+        return TeamId.team2;
+      default:
+        throw ArgumentError('Unknown TeamId wire value: $wire');
+    }
+  }
 }
 
 class TeamState {

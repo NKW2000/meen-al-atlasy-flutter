@@ -83,4 +83,13 @@ void main() {
     );
     expect(decoded, state);
   });
+
+  test('wire strings match the Kotlin enum names', () {
+    expect(TeamId.team1.wire, 'TEAM_1');
+    expect(TeamId.team2.wire, 'TEAM_2');
+    expect(RoundPhase.faceOff.wire, 'FACE_OFF');
+    expect(RoundPhase.playOrPass.wire, 'PLAY_OR_PASS');
+    expect(BuzzState.lockedTeam1.wire, 'LOCKED_TEAM_1');
+    expect(() => TeamIdX.fromWire('TEAM1'), throwsArgumentError);
+  });
 }

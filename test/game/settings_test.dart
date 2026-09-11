@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meen_al_atlasy/game/models.dart';
 import 'package:meen_al_atlasy/game/settings.dart';
 
 void main() {
@@ -32,5 +33,24 @@ void main() {
       GameSettings(multipliers: const []).clamped().multipliers,
       GameSettings.defaultMultipliers,
     );
+  });
+
+  test('two independently constructed identical settings are equal', () {
+    final a = GameSettings(
+      rounds: 5,
+      multipliers: const [1, 2, 3],
+      roomName: 'غرفتي',
+      teamNames: const {TeamId.team1: 'أ', TeamId.team2: 'ب'},
+    );
+    final b = GameSettings(
+      rounds: 5,
+      multipliers: const [1, 2, 3],
+      roomName: 'غرفتي',
+      teamNames: const {TeamId.team1: 'أ', TeamId.team2: 'ب'},
+    );
+
+    expect(a, b);
+    expect(a.hashCode, b.hashCode);
+    expect(a, isNot(b.copyWith(rounds: 6)));
   });
 }
