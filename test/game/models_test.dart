@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meen_al_atlasy/game/engine.dart';
+import 'package:meen_al_atlasy/game/events.dart';
 import 'package:meen_al_atlasy/game/models.dart';
 
 import 'fixtures.dart';
@@ -44,22 +46,10 @@ void main() {
     expect(masked.currentQuestion!.text, '');
   });
 
-  // ملاحظة: النسخة الأصلية (GameModelsTest.kt) بتستعمل GameEngine لتوصل
-  // لهاد الحالة (buzzPodium + correct). GameEngine بيجي بـ Task 2، فهون
-  // منبني نفس حالة الأجوبة يدوياً (جواب رقم ٠ مكشوف) ونتأكد إنو الإخفاء
-  // (masking) شغّال صح على مستوى الموديل بس.
   test('the question never reaches a player, revealed answers do', () {
-    final base = board('q1');
-    final revealedFirst = base.copyWith(
-      answers: [
-        base.answers[0].copyWith(revealed: true),
-        base.answers[1],
-        base.answers[2],
-        base.answers[3],
-      ],
-    );
-    final masked =
-        freshState(questions: [revealedFirst, board('q2')]).maskedForPlayers();
+    final engine = GameEngine(freshState());
+    engine.buzzPodium(TeamId.team1);
+    final masked = engine.correct(0).maskedForPlayers();
     final question = masked.currentQuestion!;
 
     expect(question.text, '');
@@ -69,10 +59,16 @@ void main() {
     expect(question.answers[1].points, 30);
   });
 
-  // نفس الملاحظة أعلاه: بدل ما نلف جولة كاملة عبر GameEngine، منتحرك
-  // للسؤال التالي مباشرة عبر copyWith ونتأكد إنو نصّه محجوب من جديد.
   test('the next round hides its question again', () {
-    final next = freshState().copyWith(currentQuestionIndex: 1).maskedForPlayers();
+    final engine = GameEngine(freshState());
+    engine.giveControlTo(TeamId.team1);
+    for (var i = 0; i < 3; i++) {
+      engine.wrong();
+    }
+    engine.wrong();
+    engine.apply(const NextRound()); // شاشة النتائج
+    final next = engine.apply(const NextRound()).maskedForPlayers();
+
     expect(next.currentQuestion!.text, '');
   });
 

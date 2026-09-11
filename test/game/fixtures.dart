@@ -1,3 +1,5 @@
+import 'package:meen_al_atlasy/game/engine.dart';
+import 'package:meen_al_atlasy/game/events.dart';
 import 'package:meen_al_atlasy/game/models.dart';
 
 /// لوح من ٤ أجوبة — نفس السؤال بكل الاختبارات حتى تضل الأرقام متوقعة.
@@ -38,4 +40,26 @@ GameState freshState({
 
 extension GameStateScore on GameState {
   int score(TeamId team) => teams[team]!.score;
+}
+
+extension EngineHelpers on GameEngine {
+  GameState buzz(String playerId) => apply(Buzz(playerId, 0));
+
+  /// بيضغط لاعب المنصة الحالي لهاد الفريق.
+  GameState buzzPodium(TeamId team) => buzz(state.podiumPlayer(team)!.id);
+
+  GameState correct(int index) => apply(JudgeCorrect(index));
+
+  GameState wrong() => apply(const JudgeWrong());
+
+  GameState choosePlay() => apply(const ChooseControl(true));
+
+  GameState choosePass() => apply(const ChooseControl(false));
+
+  /// بتوصل اللعبة لمرحلة اللعب مع [team] ماسك اللوح وجواب رقم ١ مكشوف.
+  GameState giveControlTo(TeamId team) {
+    buzzPodium(team);
+    correct(0);
+    return choosePlay();
+  }
 }
