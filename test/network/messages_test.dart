@@ -149,8 +149,7 @@ void main() {
   group('encode/decode functions', () {
     test('encodeClientMessage and decodeClientMessage round-trip', () {
       final original = JoinMessage(playerName: 'Test', teamId: TeamId.team2);
-      final encoded = encodeClientMessage(original).codeUnits;
-      final decoded = decodeClientMessage(encoded) as JoinMessage;
+      final decoded = decodeClientMessage(encodeClientMessage(original)) as JoinMessage;
       expect(decoded, isA<JoinMessage>());
       expect(decoded.playerName, equals('Test'));
       expect(decoded.teamId, equals(TeamId.team2));
@@ -158,20 +157,38 @@ void main() {
 
     test('encodeHostMessage and decodeHostMessage round-trip', () {
       final original = Assigned(playerId: 'p7', teamId: TeamId.team1);
-      final encoded = encodeHostMessage(original).codeUnits;
-      final decoded = decodeHostMessage(encoded);
+      final decoded = decodeHostMessage(encodeHostMessage(original));
       expect(decoded, isA<Assigned>());
       expect((decoded as Assigned).playerId, equals('p7'));
     });
 
     test('decodeClientMessage throws on unknown type', () {
-      final encoded = '{"type":"invalid"}'.codeUnits;
-      expect(() => decodeClientMessage(encoded), throwsA(isA<FormatException>()));
+      expect(
+        () => decodeClientMessage('{"type":"invalid"}'),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test('decodeHostMessage throws on unknown type', () {
-      final encoded = '{"type":"bad"}'.codeUnits;
-      expect(() => decodeHostMessage(encoded), throwsA(isA<FormatException>()));
+      expect(
+        () => decodeHostMessage('{"type":"bad"}'),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('non-ASCII playerName round-trips through encode/decode', () {
+      final original = JoinMessage(playerName: 'لاعب جديد', teamId: TeamId.team1);
+      final decoded = decodeClientMessage(encodeClientMessage(original)) as JoinMessage;
+      expect(decoded.playerName, equals('لاعب جديد'));
+      expect(decoded, equals(original));
+    });
+
+    test('StateUpdate with Arabic team names round-trips', () {
+      final state = freshState().maskedForPlayers();
+      final original = StateUpdate(state: state);
+      final decoded = decodeHostMessage(encodeHostMessage(original)) as StateUpdate;
+      expect(decoded.state.teams[TeamId.team1]!.name, contains('ف'));
+      expect(decoded, equals(original));
     });
   });
 }

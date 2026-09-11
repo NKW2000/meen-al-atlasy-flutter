@@ -27,6 +27,11 @@ void main() {
       final code = encodeRoomCode(ip);
       expect(code, equals('00000'));
     });
+
+    test('IPv6 address throws ArgumentError', () {
+      final ipv6 = InternetAddress('::1');
+      expect(() => encodeRoomCode(ipv6), throwsA(isA<ArgumentError>()));
+    });
   });
 
   group('decodeRoomCode', () {

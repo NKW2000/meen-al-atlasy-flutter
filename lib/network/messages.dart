@@ -5,6 +5,20 @@ import 'dart:convert';
 import '../game/models.dart';
 
 // ============================================================================
+// Utilities
+// ============================================================================
+
+/// Wrap the body in try/catch and convert exceptions to FormatException.
+T _asFormat<T>(T Function() body) {
+  try {
+    return body();
+  } catch (e) {
+    if (e is FormatException) rethrow;
+    throw FormatException('Failed to decode: $e');
+  }
+}
+
+// ============================================================================
 // Client Messages (من جهاز اللاعب ← للمضيف)
 // ============================================================================
 
@@ -13,7 +27,7 @@ sealed class ClientMessage {
   Map<String, dynamic> toJson();
 
   static ClientMessage fromJson(Map<String, dynamic> json) {
-    try {
+    return _asFormat(() {
       final type = json['type'] as String?;
       switch (type) {
         case 'join':
@@ -41,10 +55,7 @@ sealed class ClientMessage {
         default:
           throw FormatException('Unknown ClientMessage type: $type');
       }
-    } catch (e) {
-      if (e is FormatException) rethrow;
-      throw FormatException('Failed to decode ClientMessage: $e');
-    }
+    });
   }
 }
 
@@ -169,7 +180,7 @@ sealed class HostMessage {
   Map<String, dynamic> toJson();
 
   static HostMessage fromJson(Map<String, dynamic> json) {
-    try {
+    return _asFormat(() {
       final type = json['type'] as String?;
       switch (type) {
         case 'state':
@@ -184,10 +195,7 @@ sealed class HostMessage {
         default:
           throw FormatException('Unknown HostMessage type: $type');
       }
-    } catch (e) {
-      if (e is FormatException) rethrow;
-      throw FormatException('Failed to decode HostMessage: $e');
-    }
+    });
   }
 }
 
@@ -243,34 +251,28 @@ class Assigned extends HostMessage {
 // Encoding / Decoding Functions
 // ============================================================================
 
-/// رسالة من اللاعب → بايتات (JSON).
+/// رسالة من اللاعب → JSON string.
 String encodeClientMessage(ClientMessage message) {
   return jsonEncode(message.toJson());
 }
 
-/// بايتات (JSON) → رسالة من اللاعب.
-ClientMessage decodeClientMessage(List<int> bytes) {
-  try {
-    final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+/// JSON string → رسالة من اللاعب.
+ClientMessage decodeClientMessage(String s) {
+  return _asFormat(() {
+    final json = jsonDecode(s) as Map<String, dynamic>;
     return ClientMessage.fromJson(json);
-  } catch (e) {
-    if (e is FormatException) rethrow;
-    throw FormatException('Failed to decode ClientMessage bytes: $e');
-  }
+  });
 }
 
-/// رسالة من المضيف → بايتات (JSON).
+/// رسالة من المضيف → JSON string.
 String encodeHostMessage(HostMessage message) {
   return jsonEncode(message.toJson());
 }
 
-/// بايتات (JSON) → رسالة من المضيف.
-HostMessage decodeHostMessage(List<int> bytes) {
-  try {
-    final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+/// JSON string → رسالة من المضيف.
+HostMessage decodeHostMessage(String s) {
+  return _asFormat(() {
+    final json = jsonDecode(s) as Map<String, dynamic>;
     return HostMessage.fromJson(json);
-  } catch (e) {
-    if (e is FormatException) rethrow;
-    throw FormatException('Failed to decode HostMessage bytes: $e');
-  }
+  });
 }

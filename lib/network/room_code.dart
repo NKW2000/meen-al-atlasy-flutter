@@ -5,11 +5,11 @@ import 'dart:io';
 
 /// تشفير عنوان المضيف كرمز غرفة: الثالث*256+الرابع، مع تعديد الأصفار إلى 5 أرقام.
 String encodeRoomCode(InternetAddress ip) {
-  final parts = ip.host.split('.');
-  if (parts.length != 4) {
+  if (ip.type != InternetAddressType.IPv4) {
     throw ArgumentError('Expected IPv4 address, got: ${ip.host}');
   }
 
+  final parts = ip.host.split('.');
   final third = int.parse(parts[2]);
   final fourth = int.parse(parts[3]);
   final code = third * 256 + fourth;
@@ -21,11 +21,6 @@ String encodeRoomCode(InternetAddress ip) {
 /// الرمز يجب أن يكون بالضبط 5 أرقام وقيمته لا تتجاوز 65535.
 InternetAddress? decodeRoomCode(String code, InternetAddress myIp) {
   // يجب أن يكون الكود بالضبط 5 أرقام
-  if (code.length != 5) {
-    return null;
-  }
-
-  // يجب أن يكون كل شيء أرقام
   if (!RegExp(r'^\d{5}$').hasMatch(code)) {
     return null;
   }
