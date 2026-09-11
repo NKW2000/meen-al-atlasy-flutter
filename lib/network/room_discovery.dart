@@ -50,6 +50,8 @@ class RoomDiscovery {
 
   /// بيبدأ الاستماع لبثّ الغرف.
   Future<void> start() async {
+    if (_socket != null) return; // شغّال أصلاً — ما منعمل شي.
+
     final sock = await RawDatagramSocket.bind(
       bindAddress,
       roomBeaconPort,
@@ -81,7 +83,11 @@ class RoomDiscovery {
     _seen.removeWhere((_, entry) => entry.$2.isBefore(cutoff));
     final sorted = _seen.values.map((e) => e.$1).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
-    rooms.value = sorted;
+    // ما منحدّث القيمة إلا إذا فعلاً تغيّرت — حتى ما نطلق مستمعين (والواجهة)
+    // كل ثانية بلا داعي لما القائمة نفسها.
+    if (!listEquals(rooms.value, sorted)) {
+      rooms.value = sorted;
+    }
   }
 
   /// بيوقف الاستماع ويسكّر المقبس.
@@ -91,5 +97,6 @@ class RoomDiscovery {
     _socket?.close();
     _socket = null;
     _seen.clear();
+    rooms.value = const [];
   }
 }

@@ -1,7 +1,5 @@
-import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meen_al_atlasy/game/models.dart';
 import 'package:meen_al_atlasy/network/host_server.dart';
@@ -9,32 +7,7 @@ import 'package:meen_al_atlasy/network/messages.dart';
 import 'package:meen_al_atlasy/network/player_client.dart';
 
 import '../game/fixtures.dart';
-
-/// بينتظر لحد ما قيمة [notifier] تحقق [predicate]، أو تنتهي المهلة.
-Future<void> waitForValue<T>(
-  ValueListenable<T> notifier,
-  bool Function(T value) predicate, {
-  Duration timeout = const Duration(seconds: 10),
-}) {
-  if (predicate(notifier.value)) return Future.value();
-  final completer = Completer<void>();
-  late final VoidCallback listener;
-  listener = () {
-    if (predicate(notifier.value) && !completer.isCompleted) {
-      notifier.removeListener(listener);
-      completer.complete();
-    }
-  };
-  notifier.addListener(listener);
-  return completer.future.timeout(
-    timeout,
-    onTimeout: () {
-      notifier.removeListener(listener);
-      throw TimeoutException(
-          'value never satisfied predicate (last: ${notifier.value})');
-    },
-  );
-}
+import 'helpers.dart';
 
 void main() {
   group('HostServer <-> PlayerClient (loopback)', () {
@@ -47,7 +20,7 @@ void main() {
     });
 
     tearDown(() async {
-      await client.disconnect();
+      await client.dispose();
       await server.stop();
     });
 
@@ -100,5 +73,60 @@ void main() {
 
       await sub.cancel();
     }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test(
+      'reconnecting to the same server closes the previous socket without '
+      'flipping status away from connected',
+      () async {
+        await server.start(port: 0);
+
+        await client.connect(
+          host: InternetAddress.loopbackIPv4,
+          port: server.port,
+          playerName: 'أ',
+        );
+        expect(client.status.value, equals(ConnectionStatus.connected));
+
+        // اتصال ثاني بنفس الخادم — لازم يسكّر الأول من تحت الطاولة، بدون
+        // ما حدث إغلاقه (onDone) يقلب حالة الاتصال الثاني.
+        await client.connect(
+          host: InternetAddress.loopbackIPv4,
+          port: server.port,
+          playerName: 'أ',
+        );
+        expect(client.status.value, equals(ConnectionStatus.connected));
+
+        // ننتظر شوي حتى ينوصل حدث إغلاق الـ socket الأول (لو رح يوصل) —
+        // ما لازم يقلب حالة الاتصال الثاني لـ disconnected.
+        await Future.delayed(const Duration(milliseconds: 300));
+        expect(client.status.value, equals(ConnectionStatus.connected));
+      },
+      timeout: const Timeout(Duration(seconds: 15)),
+    );
+
+    test(
+      'stop() while a client connect is racing in flight completes without '
+      'throwing',
+      () async {
+        await server.start(port: 0);
+        final port = server.port;
+
+        // ما منستنى الاتصال يخلص — منوقف الخادم فوراً لمحاكاة السباق بين
+        // stop() وترقية WebSocket لسا عم تصير.
+        final connectFuture = WebSocket.connect('ws://127.0.0.1:$port/');
+
+        await server.stop();
+
+        // النتيجة (نجاح أو فشل) مش المهمة — المهم ما في استثناء غير ملتقط
+        // وما تعلّق stop() (اللي خلصت فوق أصلاً).
+        try {
+          final ws = await connectFuture;
+          await ws.close();
+        } catch (_) {
+          // اتصال العميل ممكن ينقطع بسبب السباق — متوقع وسليم.
+        }
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
+    );
   });
 }

@@ -23,6 +23,8 @@ class RoomBeacon {
 
   /// بيبدأ البث الدوري لاسم الغرفة [roomName] ومنفذ الخادم [port].
   Future<void> start({required String roomName, required int port}) async {
+    if (_socket != null) return; // شغّال أصلاً — ما منعمل شي.
+
     final sock = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
     sock.broadcastEnabled = true;
     _socket = sock;
@@ -30,7 +32,11 @@ class RoomBeacon {
     void tick() {
       final payload =
           utf8.encode(jsonEncode({'room': roomName, 'port': port, 'version': 1}));
-      sock.send(payload, target, roomBeaconPort);
+      try {
+        sock.send(payload, target, roomBeaconPort);
+      } on SocketException {
+        // ما في شبكة مؤقتاً (مثلاً واجهة انقطعت) — منحاول تاني بالتيك الجاي.
+      }
     }
 
     tick();

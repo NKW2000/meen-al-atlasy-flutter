@@ -28,12 +28,27 @@ class PlayerClient {
   String? _lastPlayerName;
 
   /// بيتّصل بمضيف على [host]:[port] وبيبعت رسالة انضمام باسم [playerName].
+  ///
+  /// لو في اتصال قديم لسا مفتوح (مثلاً نداء ثاني لـ [connect] أو [rejoin])،
+  /// منسكّره الأول — وبما إنه ممكن يوصل حدث onDone/onError تبعه بعد ما
+  /// نبدأ اتصال جديد، منربط كل مستمع بنسخة الـ socket اللي انطلق منها
+  /// (`ws` محليّة) حتى ما يقدر اتصال قديم يقلب حالة الاتصال الجديد.
   Future<void> connect({
     required InternetAddress host,
     required int port,
     required String playerName,
     TeamId? teamId,
   }) async {
+    final previous = _ws;
+    _ws = null;
+    if (previous != null) {
+      try {
+        await previous.close();
+      } catch (_) {
+        // ما بيهمّنا خطأ إغلاق اتصال قديم عم نتخلّى عنه.
+      }
+    }
+
     _lastHost = host;
     _lastPort = port;
     _lastPlayerName = playerName;
@@ -51,11 +66,16 @@ class PlayerClient {
     _ws = ws;
     ws.pingInterval = const Duration(seconds: 5);
     status.value = ConnectionStatus.connected;
-    ws.listen(_onData, onDone: _onClosed, onError: (_) => _onClosed());
+    ws.listen(
+      (data) => _onData(ws, data),
+      onDone: () => _onClosed(ws),
+      onError: (_) => _onClosed(ws),
+    );
     send(JoinMessage(playerName: playerName, teamId: teamId));
   }
 
-  void _onData(dynamic data) {
+  void _onData(WebSocket ws, dynamic data) {
+    if (!identical(_ws, ws)) return; // اتصال قديم استُبدل — نتجاهل حدثه.
     try {
       final message = decodeHostMessage(data as String);
       switch (message) {
@@ -70,7 +90,8 @@ class PlayerClient {
     }
   }
 
-  void _onClosed() {
+  void _onClosed(WebSocket ws) {
+    if (!identical(_ws, ws)) return; // اتصال قديم استُبدل — نتجاهل حدثه.
     status.value = ConnectionStatus.disconnected;
   }
 
@@ -105,5 +126,15 @@ class PlayerClient {
       await ws.close();
     }
     status.value = ConnectionStatus.disconnected;
+  }
+
+  /// بيقطع الاتصال ويحرّر كل الـ [ValueNotifier] — لازم تناديها لما تخلص
+  /// من العميل نهائياً (مش بين إعادة اتصال وإعادة اتصال).
+  Future<void> dispose() async {
+    await disconnect();
+    state.dispose();
+    status.dispose();
+    playerId.dispose();
+    teamId.dispose();
   }
 }

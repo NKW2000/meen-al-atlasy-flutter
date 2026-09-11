@@ -66,8 +66,7 @@ abstract class HostTransport {
 class HostServer implements HostTransport {
   HttpServer? _server;
   final Map<String, WebSocket> _sockets = {};
-  final StreamController<ClientEvent> _events =
-      StreamController<ClientEvent>.broadcast();
+  StreamController<ClientEvent> _events = StreamController<ClientEvent>.broadcast();
   int _next = 0;
 
   @override
@@ -78,6 +77,11 @@ class HostServer implements HostTransport {
 
   @override
   Future<void> start({int port = 47215}) async {
+    if (_server != null) return; // شغّال أصلاً — ما منعمل شي.
+    if (_events.isClosed) {
+      // انوقف الخادم قبل هيك — لازم دفق جديد، القديم مسكّر نهائياً.
+      _events = StreamController<ClientEvent>.broadcast();
+    }
     try {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
     } on SocketException {
@@ -89,7 +93,23 @@ class HostServer implements HostTransport {
         await req.response.close();
         return;
       }
-      final ws = await WebSocketTransformer.upgrade(req);
+
+      WebSocket ws;
+      try {
+        ws = await WebSocketTransformer.upgrade(req);
+      } catch (_) {
+        // الترقية فشلت (مثلاً الخادم سكّر بالمنتصف) — ما في شي نعمله.
+        return;
+      }
+
+      // stop() ممكن تكون سبقتنا وحنا لسا عم نرقّي الاتصال — لو هيك، نسكّر
+      // الـ socket الجديد فوراً وما نسجّله، حتى ما يتسرّب ولا ينرمى خطأ
+      // بمحاولة إضافة حدث لدفق مسكّر.
+      if (_events.isClosed || _server == null) {
+        await ws.close(1001);
+        return;
+      }
+
       final id = 'ep${_next++}';
       _sockets[id] = ws;
       ws.pingInterval = const Duration(seconds: 5);
@@ -107,11 +127,11 @@ class HostServer implements HostTransport {
         onDone: () => _drop(id),
         onError: (_) => _drop(id),
       );
-    });
+    }, onError: (_) {});
   }
 
   void _drop(String id) {
-    if (_sockets.remove(id) != null) {
+    if (_sockets.remove(id) != null && !_events.isClosed) {
       _events.add(ClientDisconnected(id));
     }
   }
@@ -125,7 +145,11 @@ class HostServer implements HostTransport {
   void broadcast(HostMessage m) {
     final payload = encodeHostMessage(m);
     for (final ws in _sockets.values) {
-      ws.add(payload);
+      try {
+        ws.add(payload);
+      } catch (_) {
+        // اتصال ميت — نتجاهله ونكمّل للباقي.
+      }
     }
   }
 
