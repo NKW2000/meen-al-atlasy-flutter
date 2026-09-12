@@ -13,13 +13,42 @@ import 'messages.dart';
 /// حالة اتصال جهاز اللاعب بالمضيف.
 enum ConnectionStatus { idle, connecting, connected, disconnected }
 
+/// واجهة النقل اللي بيعتمد عليها [PlayerController] (Task 6) — تجريدها عن
+/// [PlayerClient] الحقيقي حتى تقدر اختبارات اللاعب تستخدم نسخة وهمية بدل
+/// اتصال WebSocket حقيقي. نفس فكرة `HostTransport` بجانب المضيف.
+abstract class PlayerTransport {
+  ValueListenable<GameState?> get state;
+  ValueListenable<ConnectionStatus> get status;
+  ValueListenable<String?> get playerId;
+  ValueListenable<TeamId?> get teamId;
+
+  Future<void> connect({
+    required InternetAddress host,
+    required int port,
+    required String playerName,
+    TeamId? teamId,
+  });
+
+  void send(ClientMessage m);
+
+  Future<void> rejoin();
+
+  Future<void> disconnect();
+
+  Future<void> dispose();
+}
+
 /// عميل اللاعب — بيتّصل بمضيف عبر WebSocket، ويعرض حالة اللعبة ومعرّف
 /// اللاعب وفريقه كـ [ValueNotifier] تقدر الواجهة تستمع له مباشرة.
-class PlayerClient {
+class PlayerClient implements PlayerTransport {
+  @override
   final ValueNotifier<GameState?> state = ValueNotifier<GameState?>(null);
+  @override
   final ValueNotifier<ConnectionStatus> status =
       ValueNotifier<ConnectionStatus>(ConnectionStatus.idle);
+  @override
   final ValueNotifier<String?> playerId = ValueNotifier<String?>(null);
+  @override
   final ValueNotifier<TeamId?> teamId = ValueNotifier<TeamId?>(null);
 
   WebSocket? _ws;
@@ -33,6 +62,7 @@ class PlayerClient {
   /// منسكّره الأول — وبما إنه ممكن يوصل حدث onDone/onError تبعه بعد ما
   /// نبدأ اتصال جديد، منربط كل مستمع بنسخة الـ socket اللي انطلق منها
   /// (`ws` محليّة) حتى ما يقدر اتصال قديم يقلب حالة الاتصال الجديد.
+  @override
   Future<void> connect({
     required InternetAddress host,
     required int port,
@@ -71,7 +101,9 @@ class PlayerClient {
       onDone: () => _onClosed(ws),
       onError: (_) => _onClosed(ws),
     );
-    send(JoinMessage(playerName: playerName, teamId: teamId));
+    // منبعت آخر معرّف عيّنه المضيف (إذا في) حتى يقدر يعيد ربطنا بنفس
+    // اللاعب لو هاي إعادة اتصال (Task 6) — أول انضمام playerId.value لسا null.
+    send(JoinMessage(playerName: playerName, teamId: teamId, playerId: playerId.value));
   }
 
   void _onData(WebSocket ws, dynamic data) {
@@ -96,12 +128,15 @@ class PlayerClient {
   }
 
   /// بيبعت رسالة للمضيف عبر الاتصال الحالي.
+  @override
   void send(ClientMessage m) {
     _ws?.add(encodeClientMessage(m));
   }
 
-  /// بيعيد الاتصال بآخر مضيف، وبيبعت انضمام جديد بنفس الاسم والفريق —
-  /// المضيف بيتعرّف على اللاعب من اسمه ويعيد ربطه بنفس معرّفه (Task 6).
+  /// بيعيد الاتصال بآخر مضيف، وبيبعت انضمام جديد بنفس الاسم والفريق
+  /// ونفس [playerId] المحفوظ — المضيف بيتعرّف على اللاعب من معرّفه (أو
+  /// اسمه إذا انقطع) ويعيد ربطه بنفس مكانه (Task 6).
+  @override
   Future<void> rejoin() async {
     final host = _lastHost;
     final port = _lastPort;
@@ -119,6 +154,7 @@ class PlayerClient {
   }
 
   /// بيقطع الاتصال بالمضيف نهائياً.
+  @override
   Future<void> disconnect() async {
     final ws = _ws;
     _ws = null;
@@ -130,6 +166,7 @@ class PlayerClient {
 
   /// بيقطع الاتصال ويحرّر كل الـ [ValueNotifier] — لازم تناديها لما تخلص
   /// من العميل نهائياً (مش بين إعادة اتصال وإعادة اتصال).
+  @override
   Future<void> dispose() async {
     await disconnect();
     state.dispose();

@@ -36,6 +36,7 @@ sealed class ClientMessage {
             teamId: json['teamId'] != null
                 ? TeamIdX.fromWire(json['teamId'] as String)
                 : null,
+            playerId: json['playerId'] as String?,
           );
         case 'team':
           return ChangeTeamMessage(
@@ -60,13 +61,19 @@ sealed class ClientMessage {
 }
 
 /// الاتصال الأول من لاعب جديد.
+///
+/// [playerId] هو معرّف اللاعب اللي عيّنه المضيف قبل هيك — منبعته لما
+/// نعيد الاتصال (WebSocket جديد = معرّف نقطة نهاية جديد) حتى يقدر المضيف
+/// يعيد ربطنا بنفس اللاعب بدل ما يعتبرنا لاعب جديد. `null` لأول انضمام.
 class JoinMessage extends ClientMessage {
   final String playerName;
   final TeamId? teamId;
+  final String? playerId;
 
   JoinMessage({
     required this.playerName,
     this.teamId,
+    this.playerId,
   });
 
   @override
@@ -74,6 +81,7 @@ class JoinMessage extends ClientMessage {
         'type': 'join',
         'playerName': playerName,
         'teamId': teamId?.wire,
+        'playerId': playerId,
       };
 
   @override
@@ -81,10 +89,11 @@ class JoinMessage extends ClientMessage {
       identical(this, other) ||
       (other is JoinMessage &&
           other.playerName == playerName &&
-          other.teamId == teamId);
+          other.teamId == teamId &&
+          other.playerId == playerId);
 
   @override
-  int get hashCode => Object.hash(playerName, teamId);
+  int get hashCode => Object.hash(playerName, teamId, playerId);
 }
 
 /// اللاعب بيغيّر فريقه قبل ما تبلّش اللعبة.

@@ -28,6 +28,29 @@ void main() {
       expect((decoded as JoinMessage).teamId, equals(TeamId.team1));
     });
 
+    test('JoinMessage without playerId decodes playerId as null', () {
+      final original = JoinMessage(playerName: 'لاعب جديد');
+      final json = original.toJson();
+      final decoded = ClientMessage.fromJson(json) as JoinMessage;
+      expect(decoded.playerId, isNull);
+    });
+
+    test('JoinMessage with playerId round-trips (reconnect)', () {
+      final original = JoinMessage(
+        playerName: 'سامر',
+        teamId: TeamId.team2,
+        playerId: 'ep0',
+      );
+      final json = original.toJson();
+      final decoded = ClientMessage.fromJson(json);
+      expect(decoded, isA<JoinMessage>());
+      final msg = decoded as JoinMessage;
+      expect(msg.playerName, equals('سامر'));
+      expect(msg.teamId, equals(TeamId.team2));
+      expect(msg.playerId, equals('ep0'));
+      expect(msg, equals(original));
+    });
+
     test('ChangeTeamMessage round-trips through JSON', () {
       final original = ChangeTeamMessage(
         playerId: 'player1',

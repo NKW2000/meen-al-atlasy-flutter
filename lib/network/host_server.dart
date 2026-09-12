@@ -8,6 +8,10 @@ import 'dart:io';
 
 import 'messages.dart';
 
+/// المنفذ الافتراضي لخادم المضيف — نفس المنفذ اللي بيستعمله [PlayerController]
+/// (Task 6) لما يتّصل بكود غرفة (اللي بيحمل الـ IP بس، مش المنفذ).
+const int defaultHostPort = 47215;
+
 // ============================================================================
 // Client Events (من أجهزة اللاعبين ← للمضيف)
 // ============================================================================
@@ -49,7 +53,7 @@ abstract class HostTransport {
   Stream<ClientEvent> get events;
 
   /// بيشغّل الخادم على [port]. لو المنفذ مشغول، بيرجع لمنفذ عشوائي (0).
-  Future<void> start({int port = 47215});
+  Future<void> start({int port = defaultHostPort});
 
   /// بيبعت رسالة للاعب واحد بس، محدّد بـ [endpointId].
   void send(String endpointId, HostMessage m);
@@ -76,7 +80,7 @@ class HostServer implements HostTransport {
   Stream<ClientEvent> get events => _events.stream;
 
   @override
-  Future<void> start({int port = 47215}) async {
+  Future<void> start({int port = defaultHostPort}) async {
     if (_server != null) return; // شغّال أصلاً — ما منعمل شي.
     if (_events.isClosed) {
       // انوقف الخادم قبل هيك — لازم دفق جديد، القديم مسكّر نهائياً.
