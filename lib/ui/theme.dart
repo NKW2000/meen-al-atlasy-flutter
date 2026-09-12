@@ -159,7 +159,16 @@ ThemeData _feudTheme() => ThemeData(
 
 /// التطبيق عربي فقط بهاد الإصدار، فمنثبّت اتجاه الواجهة RTL بدل ما نتكل
 /// على لغة الجهاز.
-Widget feudApp(Widget home) => MaterialApp(
+///
+/// [home] كافي لشاشة وحدة (اختبارات المكوّنات). لتطبيق فيه شبكة تنقّل
+/// كاملة بمسارات مسمّاة (`main.dart`)، منمرر [initialRoute] و
+/// [onGenerateRoute] بدل [home] — نفس `NavHost` بـ`FeudNavGraph.kt`.
+Widget feudApp(
+  Widget? home, {
+  String? initialRoute,
+  RouteFactory? onGenerateRoute,
+}) =>
+    MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: _feudTheme(),
       builder: (context, child) => Directionality(
@@ -167,4 +176,6 @@ Widget feudApp(Widget home) => MaterialApp(
         child: child ?? const SizedBox.shrink(),
       ),
       home: home,
+      initialRoute: initialRoute,
+      onGenerateRoute: onGenerateRoute,
     );
