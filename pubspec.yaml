@@ -21,3 +21,20 @@ flutter:
   uses-material-design: true
   assets:
     - assets/questions/
+  fonts:
+    - family: BalooBhaijaan2
+      fonts:
+        - asset: assets/fonts/baloo_bhaijaan2_medium.ttf
+          weight: 500
+        - asset: assets/fonts/baloo_bhaijaan2_bold.ttf
+          weight: 700
+        - asset: assets/fonts/baloo_bhaijaan2_extrabold.ttf
+          weight: 800
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/tajawal_medium.ttf
+          weight: 500
+        - asset: assets/fonts/tajawal_bold.ttf
+          weight: 700
+        - asset: assets/fonts/tajawal_extrabold.ttf
+          weight: 800
