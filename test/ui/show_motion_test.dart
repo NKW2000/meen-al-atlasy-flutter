@@ -43,6 +43,10 @@ void main() {
       expect(thump(0.46, 0), 1.0);
       expect(thump(10, 0), 1.0);
     });
+
+    test('pinned value at the true peak time (t≈0.0998, not the naive 0.24)', () {
+      expect(thump(0.0998, 0), closeTo(1.22, 1e-2));
+    });
   });
 
   group('revealDelays (ported from RevealMotionTest.kt)', () {

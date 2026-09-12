@@ -140,8 +140,11 @@ class QuestionTile extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               // الظل الصلب للعلامة.
+              // Compose: `.offset(x = (-4).dp, y = 4.dp)` بياخد اتجاه
+              // الواجهة بعين الاعتبار، فبـ RTL بينزاح الظل تحت-يمين —
+              // منقلب إشارة x هون حتى Transform.translate يعطي نفس النتيجة.
               Transform.translate(
-                offset: const Offset(-4, 4),
+                offset: const Offset(4, 4),
                 child: Text('؟', textAlign: TextAlign.center, style: glyph.copyWith(color: FeudColors.ink)),
               ),
               Text('؟', textAlign: TextAlign.center, style: glyph.copyWith(color: FeudColors.teal)),

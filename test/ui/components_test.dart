@@ -123,6 +123,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'AwardBanner scales+fades in over its Kotlin timings when an award appears',
+      (tester) async {
+    final base = freshState();
+    final withoutAward = base;
+    final withAward = base.copyWith(
+      phase: RoundPhase.roundEnd,
+      lastAward: const Award(teamId: TeamId.team1, points: 40),
+    );
+
+    await pumpComponent(tester, AwardBanner(state: withoutAward));
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('+٤٠'), findsNothing);
+
+    await pumpComponent(tester, AwardBanner(state: withAward));
+    expect(tester.takeException(), isNull);
+
+    // scaleIn(280ms) + fadeIn(180ms) بالكوتلن — بعد ٣٠٠ مللي ثانية لازم
+    // يكون بانر النقاط ظاهر وخلص يتحرّك.
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('+٤٠'), findsOneWidget);
+
+    final opacity = tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity));
+    expect(opacity.opacity, 1.0);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('RoundBlock and InfoBlock render without exceptions', (tester) async {
     await pumpComponent(
       tester,
@@ -218,6 +247,37 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets(
+      'ShowScene restarts its single ticker (no crash) when sceneKey changes',
+      (tester) async {
+    double lastT = -1;
+    Widget build(Object sceneKey) => ShowScene(
+          sceneKey: sceneKey,
+          builder: (context, t) {
+            lastT = t;
+            return Text(t.toStringAsFixed(3));
+          },
+        );
+
+    await pumpComponent(tester, build(1));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.takeException(), isNull);
+    expect(lastT, greaterThan(0.4));
+
+    // نفس الحالة (State) بتتحدّث — بس بمفتاح مشهد مختلف، فلازم الساعة
+    // تعيد تشغيل (restart) نفس الـ Ticker من صفر بدون ما ترمي استثناء
+    // (SingleTickerProviderStateMixin بيرفض ثاني createTicker).
+    await pumpComponent(tester, build(2));
+    expect(tester.takeException(), isNull);
+    expect(lastT, closeTo(0, 1e-6));
+
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.takeException(), isNull);
+    expect(lastT, greaterThan(0));
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('BrandLogo, BrandLogoRow, BrandWordLine render without exceptions',
       (tester) async {
     await pumpComponent(
@@ -295,6 +355,30 @@ void main() {
     await tester.pump();
     expect(confirmedName, 'خالد');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'NamePromptDialog: a leading space in an empty field does not throw and stays empty',
+      (tester) async {
+    await pumpComponent(
+      tester,
+      NamePromptDialog(
+        title: 'اسمك؟',
+        initial: '',
+        onConfirm: (_) {},
+        onDismiss: () {},
+      ),
+    );
+    expect(tester.takeException(), isNull);
+
+    // مسافة بحقل فاضي: النص بيصير فاضي بعد التقليم، والـ selection كانت
+    // بترمي RangeError قبل التصحيح لأنها بتضل أطول من النص المقلّم.
+    await tester.enterText(find.byType(TextField), ' ');
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, isEmpty);
   });
 
   testWidgets('SettingsCard, Stepper, MultiplierChip render without exceptions',
@@ -398,11 +482,17 @@ void main() {
               position: 1,
               answer: answer,
               enabled: true,
+              revealHiddenText: false,
             ),
           );
 
       await pumpComponent(tester, build());
       expect(tester.takeException(), isNull);
+      // الوجه الكريمي (الظاهر) بيبيّن «؟ ؟ ؟» — الوجه الأخضر دايماً عنده
+      // النص الحقيقي بالشجرة (زي الكوتلن بالضبط) بس مخفي (Visibility) لحد
+      // ما ينكشف، فهيك 'جواب' موجودة بس مش مرسومة.
+      expect(find.text('؟ ؟ ؟'), findsOneWidget);
+      expect(find.text('جواب'), findsOneWidget);
 
       answer = const Answer(text: 'جواب', points: 40, revealed: true);
       await pumpComponent(tester, build());
@@ -412,6 +502,54 @@ void main() {
       // استثناء لحد ما تخلص.
       await tester.pump(const Duration(milliseconds: 700));
       expect(tester.takeException(), isNull);
+
+      // بعد ما تخلص الحركة: نص «؟ ؟ ؟» اختفى، ونص الجواب الحقيقي ظاهر.
+      expect(find.text('؟ ؟ ؟'), findsNothing);
+      expect(find.text('جواب'), findsWidgets);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets(
+        'hidden-revealed-hidden-revealed cycle reuses one ticker without exceptions',
+        (tester) async {
+      final key = GlobalKey();
+      var answer = const Answer(text: 'جواب', points: 40, revealed: false);
+
+      Widget build() => SizedBox(
+            width: 300,
+            height: 56,
+            child: AnswerSlotRow(key: key, position: 1, answer: answer, enabled: true),
+          );
+
+      await pumpComponent(tester, build());
+      expect(tester.takeException(), isNull);
+
+      // كشف أول مرة.
+      answer = const Answer(text: 'جواب', points: 40, revealed: true);
+      await pumpComponent(tester, build());
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(tester.takeException(), isNull);
+
+      // ترجع تختفي — ما بيصير هيك بلعبة حقيقية، بس لازم ما يكسر الساعة.
+      answer = const Answer(text: 'جواب', points: 40, revealed: false);
+      await pumpComponent(tester, build());
+      expect(tester.takeException(), isNull);
+
+      // كشف تاني: لازم يعيد استخدام (restart) نفس الـ ShowClock/Ticker
+      // بدل ما يعمل وحدة جديدة (SingleTickerProviderStateMixin بيرفض
+      // ثاني createTicker من نفس الـ State).
+      answer = const Answer(text: 'جواب', points: 40, revealed: true);
+      await pumpComponent(tester, build());
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(tester.takeException(), isNull);
+
+      // بآخر لحظة، الوجه الأخضر (المكشوف) لازم يكون الظاهر مش المخفي.
+      final visibilities =
+          tester.widgetList<Visibility>(find.byType(Visibility)).toList();
+      expect(visibilities, hasLength(2));
+      expect(visibilities[0].visible, isTrue, reason: 'الوجه الأخضر ظاهر');
+      expect(visibilities[1].visible, isFalse, reason: 'الوجه الكريمي مخفي');
 
       await tester.pumpWidget(const SizedBox());
     });

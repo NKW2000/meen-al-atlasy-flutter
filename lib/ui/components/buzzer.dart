@@ -33,8 +33,13 @@ class BuzzerButton extends StatefulWidget {
 }
 
 class _BuzzerButtonState extends State<BuzzerButton>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _bob;
+  // نزول الزر لحظة الضغط — animateFloatAsState(tween(110)) بالكوتلن.
+  late final AnimationController _press = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 110),
+  );
   bool _pressed = false;
 
   @override
@@ -62,12 +67,17 @@ class _BuzzerButtonState extends State<BuzzerButton>
   @override
   void dispose() {
     _bob.dispose();
+    _press.dispose();
     super.dispose();
   }
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
     setState(() => _pressed = value);
+    _press.animateTo(
+      value && widget.enabled ? 1 : 0,
+      duration: const Duration(milliseconds: 110),
+    );
     if (value && widget.enabled) {
       HapticFeedback.heavyImpact();
     }
@@ -79,10 +89,10 @@ class _BuzzerButtonState extends State<BuzzerButton>
     final isLight = _isLight(widget.accent);
 
     return AnimatedBuilder(
-      animation: _bob,
+      animation: Listenable.merge([_bob, _press]),
       builder: (context, child) {
         final lift = _bob.value * 6;
-        final drop = _pressed && widget.enabled ? shadowDepth : 0.0;
+        final drop = _press.value * shadowDepth;
 
         return SizedBox(
           width: widget.size + shadowDepth,
@@ -118,8 +128,14 @@ class _BuzzerButtonState extends State<BuzzerButton>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: FeudColors.ink, width: 7),
+                        // Compose: `Brush.radialGradient(center =
+                        // Offset(0.32f, 0.22f))` — هاد Offset بكسلات خام
+                        // (مش نسبة من الحجم)، فعملياً بيوقع بالزاوية
+                        // فوق-يسار بالضبط لأي حجم زر حقيقي. Alignment(-1,-1)
+                        // هون هو نفس الزاوية، وهو مش اتجاهي أصلاً (زي
+                        // الـ Offset الخام بالكوتلن).
                         gradient: RadialGradient(
-                          center: const Alignment(-0.36, -0.56),
+                          center: const Alignment(-1, -1),
                           colors: [_lighten(widget.accent), widget.accent],
                         ),
                       ),

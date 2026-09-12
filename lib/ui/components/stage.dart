@@ -223,8 +223,12 @@ class _CartoonSurfaceState extends State<CartoonSurface> {
       ),
     );
 
+    // Compose: `.offset(x = -drop, y = drop)` — الـ offset بالكوتلن بياخد
+    // اتجاه الواجهة بعين الاعتبار، فبـ RTL قيمة x السالبة بتحرّك العنصر
+    // لليمين. Transform.translate بفلاتر مش بياخد الاتجاه بعين الاعتبار
+    // (dx دايماً بكسلات خام)، فمنقلب الإشارة هون لنفس نتيجة RTL بالكوتلن.
     surface = Transform.translate(
-      offset: Offset(-drop, drop),
+      offset: Offset(drop, drop),
       child: surface,
     );
 

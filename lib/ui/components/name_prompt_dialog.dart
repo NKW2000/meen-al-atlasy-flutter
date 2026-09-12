@@ -100,13 +100,28 @@ class _NamePromptDialogState extends State<NamePromptDialog> {
                         textInputAction: TextInputAction.done,
                         inputFormatters: [
                           TextInputFormatter.withFunction((oldValue, newValue) {
-                            return newValue.copyWith(text: newValue.text.trimLeft());
+                            final trimmed = newValue.text.trimLeft();
+                            // لازم نقصّ الـ selection لطول النص الجديد وإلا
+                            // بترمي (RangeError) لما يكتب المستخدم مسافة
+                            // بحقل فاضي (النص بيقصر وبيضل الـ selection
+                            // أطول منه).
+                            final removed = newValue.text.length - trimmed.length;
+                            final rawEnd = newValue.selection.end;
+                            final newEnd = rawEnd < 0
+                                ? trimmed.length
+                                : (rawEnd - removed).clamp(0, trimmed.length);
+                            return TextEditingValue(
+                              text: trimmed,
+                              selection: TextSelection.collapsed(offset: newEnd),
+                            );
                           }),
                         ],
                         style: FeudText.headlineSmall(context).copyWith(color: FeudColors.ink),
                         cursorColor: FeudColors.ink,
                         decoration: InputDecoration(
                           border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
                           counterText: '',
                           hintText: 'اكتب الاسم',
                           hintStyle: FeudText.headlineSmall(context)

@@ -63,7 +63,12 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
   /// بيتذكّر إذا شفنا الخانة مخفية قبل — بس هيك الكشف بيتحرّك.
   late bool _seenHidden = !_revealed;
   bool _animating = false;
-  ShowClock? _clock;
+
+  /// ساعة واحدة طول عمر الصف — SingleTickerProviderStateMixin بيرفض
+  /// نطلب منه Ticker تاني، فمنعيد تشغيل (restart) نفس الساعة كل ما تنكشف
+  /// الخانة من جديد، بدل ما نعمل ساعة جديدة كل مرة.
+  late final ShowClock _clock =
+      ShowClock(this, cap: widget.revealDelay + _flipTime + 0.6);
 
   bool get _revealed => widget.answer?.revealed ?? false;
 
@@ -84,20 +89,17 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
     final animate = _revealed && _seenHidden;
     if (animate == _animating) return;
     _animating = animate;
-    _clock?.dispose();
-    _clock = animate
-        ? ShowClock(this, cap: widget.revealDelay + _flipTime + 0.6)
-        : null;
+    if (animate) _clock.restart();
   }
 
   @override
   void dispose() {
-    _clock?.dispose();
+    _clock.dispose();
     super.dispose();
   }
 
   double _now() {
-    if (_animating) return _clock?.value ?? 0;
+    if (_animating) return _clock.value;
     if (_revealed) return _settled;
     return 0;
   }
@@ -129,9 +131,9 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
       );
     }
 
-    if (_animating && _clock != null) {
+    if (_animating) {
       return ListenableBuilder(
-        listenable: _clock!,
+        listenable: _clock,
         builder: (context, _) => _buildFaces(context, answer, shape),
       );
     }

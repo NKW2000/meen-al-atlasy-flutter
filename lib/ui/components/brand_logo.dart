@@ -152,8 +152,11 @@ class BrandWordmark extends StatelessWidget {
       alignment: Alignment.centerRight,
       children: [
         // طبقة الظل — نفس الاسم مزاح ومحدود بالحبر.
+        // Compose: `.offset(x = -em*0.062f, y = em*0.088f)` بياخد اتجاه
+        // الواجهة بعين الاعتبار، فبـ RTL بتنزاح الطبقة تحت-يمين — منقلب
+        // إشارة x هون حتى Transform.translate (مش اتجاهي) يعطي نفس النتيجة.
         Transform.translate(
-          offset: Offset(-em * 0.062, em * 0.088),
+          offset: Offset(em * 0.062, em * 0.088),
           child: StrokedText(
             text: _wordmark,
             fontSize: em,
@@ -192,8 +195,9 @@ class BrandWordLine extends StatelessWidget {
     return Stack(
       alignment: Alignment.centerRight,
       children: [
+        // نفس ملاحظة BrandWordmark: منقلب إشارة x لتطابق RTL بالكوتلن.
         Transform.translate(
-          offset: Offset(-em * 0.062, em * 0.088),
+          offset: Offset(em * 0.062, em * 0.088),
           child: StrokedText(
             text: text,
             fontSize: em,

@@ -172,7 +172,10 @@ Map<int, double> revealDelays(
 class ShowClock extends ValueNotifier<double> {
   final TickerProvider vsync;
   final double cap;
-  Ticker? _ticker;
+  // Ticker واحد بس طول عمر الساعة — TickerProviderStateMixin بيرفض ثاني
+  // نداء لـ createTicker من نفس الـ State، فما منعيد إنشاءه، منوقّفه
+  // ومنرجّع نشغّله (Ticker.start() بيصفّر الوقت المنقضي لحاله).
+  late final Ticker _ticker = vsync.createTicker(_onTick);
 
   ShowClock(this.vsync, {this.cap = 12}) : super(0) {
     start();
@@ -180,10 +183,9 @@ class ShowClock extends ValueNotifier<double> {
 
   /// بيبلّش (أو بيعيد بلش) الساعة من صفر.
   void start() {
-    _ticker?.dispose();
+    _ticker.stop();
     value = 0;
-    // Ticker بيرجّع الوقت من لحظة start()، فهو أصلاً بيبلّش من صفر.
-    _ticker = vsync.createTicker(_onTick)..start();
+    _ticker.start();
   }
 
   /// نفس [start] — اسم أوضح لما نعيد التشغيل بعد تغيير مفتاح المشهد.
@@ -193,7 +195,7 @@ class ShowClock extends ValueNotifier<double> {
     final seconds = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
     if (seconds >= cap) {
       value = cap;
-      _ticker?.stop();
+      _ticker.stop();
       return;
     }
     value = seconds;
@@ -201,7 +203,7 @@ class ShowClock extends ValueNotifier<double> {
 
   @override
   void dispose() {
-    _ticker?.dispose();
+    _ticker.dispose();
     super.dispose();
   }
 }

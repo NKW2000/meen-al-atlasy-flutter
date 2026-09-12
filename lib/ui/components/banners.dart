@@ -80,36 +80,88 @@ class StatusBanner extends StatelessWidget {
   }
 }
 
-/// إعلان نقاط نهاية الجولة — بينط بضربة.
-class AwardBanner extends StatelessWidget {
+/// إعلان نقاط نهاية الجولة — بينط بضربة: `scaleIn(1.6f, 280ms) +
+/// fadeIn(180ms)` لما يظهر، و`fadeOut(160ms)` لما يختفي — زي
+/// `AnimatedVisibility` بالكوتلن بالحرف.
+class AwardBanner extends StatefulWidget {
   final GameState state;
 
   const AwardBanner({super.key, required this.state});
 
   @override
-  Widget build(BuildContext context) {
-    final award = state.lastAward;
-    if (award == null || !state.roundOver) return const SizedBox.shrink();
+  State<AwardBanner> createState() => _AwardBannerState();
+}
 
-    final teamName = state.teams[award.teamId]?.name ?? '';
+class _AwardBannerState extends State<AwardBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _enter = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  late final Animation<double> _scale = Tween<double>(begin: 1.6, end: 1)
+      .animate(CurvedAnimation(parent: _enter, curve: Curves.fastOutSlowIn));
+  late bool _wasVisible = _visible;
+
+  bool get _visible =>
+      widget.state.lastAward != null && widget.state.roundOver;
+
+  @override
+  void initState() {
+    super.initState();
+    // إذا الصف تركّب وهو أصلاً ظاهر (مثلاً بعد hot restart)، ما في داعي
+    // لضربة الدخول — منثبّته على القياس النهائي فوراً.
+    if (_visible) _enter.value = 1;
+  }
+
+  @override
+  void didUpdateWidget(covariant AwardBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_visible && !_wasVisible) {
+      _enter.forward(from: 0);
+    }
+    _wasVisible = _visible;
+  }
+
+  @override
+  void dispose() {
+    _enter.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final award = widget.state.lastAward;
+    if (award == null) return const SizedBox.shrink();
+
+    final teamName = widget.state.teams[award.teamId]?.name ?? '';
     final text = award.stolen
         ? 'سرقة! $teamName +${award.points.ar()}'
         : '$teamName +${award.points.ar()}';
 
-    return SizedBox(
-      width: double.infinity,
-      child: CartoonSurface(
-        color: award.stolen ? FeudColors.pink : FeudColors.gold,
-        borderWidth: 4,
-        corner: FeudShape.block,
-        shadow: 5,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: FeudText.titleMedium(context).copyWith(
-              color: award.stolen ? Colors.white : FeudColors.ink,
+    return AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: Duration(milliseconds: _visible ? 180 : 160),
+      curve: Curves.fastOutSlowIn,
+      child: AnimatedBuilder(
+        animation: _enter,
+        builder: (context, child) =>
+            Transform.scale(scale: _scale.value, child: child),
+        child: SizedBox(
+          width: double.infinity,
+          child: CartoonSurface(
+            color: award.stolen ? FeudColors.pink : FeudColors.gold,
+            borderWidth: 4,
+            corner: FeudShape.block,
+            shadow: 5,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: FeudText.titleMedium(context).copyWith(
+                  color: award.stolen ? Colors.white : FeudColors.ink,
+                ),
+              ),
             ),
           ),
         ),
