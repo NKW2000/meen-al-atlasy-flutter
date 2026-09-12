@@ -127,14 +127,22 @@ class QuestionBank {
       final categoryRaw = (item['category'] as String?)?.trim();
       final isRead = item['isRead'] as bool? ?? false;
 
-      final answers = answersRaw
-          .map((a) {
-            final m = a as Map;
-            return Answer(text: (m['text'] as String).trim(), points: m['points'] as int);
-          })
-          .toList()
-        // ترتيب اللوح دايماً من الأعلى نقاط للأقل.
-        ..sort((a, b) => b.points.compareTo(a.points));
+      // ترتيب اللوح دايماً من الأعلى نقاط للأقل. بترتيب ثابت (stable) عند
+      // تعادل النقاط — زي `sortedByDescending` بـKotlin — فبنقارن أولاً
+      // بالنقاط تنازلياً وبعدين بالترتيب الأصلي بالملف تصاعدياً، بدل
+      // الاعتماد على `List.sort` اللي مش مضمون إنه ثابت.
+      final indexedAnswers = answersRaw.asMap().entries.map((entry) {
+        final m = entry.value as Map;
+        return (
+          index: entry.key,
+          answer: Answer(text: (m['text'] as String).trim(), points: m['points'] as int),
+        );
+      }).toList()
+        ..sort((a, b) {
+          final byPoints = b.answer.points.compareTo(a.answer.points);
+          return byPoints != 0 ? byPoints : a.index.compareTo(b.index);
+        });
+      final answers = indexedAnswers.map((e) => e.answer).toList();
 
       questions.add(
         Question(

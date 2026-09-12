@@ -141,6 +141,28 @@ void main() {
       expect(question.answers.map((a) => a.points).toList(), [55, 20, 10]);
     });
 
+    test('tied points keep their original order (stable sort)', () {
+      final result = QuestionBank.parse('''
+      [
+        {
+          "text": "سؤال",
+          "answers": [
+            {"text": "أول ٣٠", "points": 30},
+            {"text": "٢٠", "points": 20},
+            {"text": "تاني ٣٠", "points": 30}
+          ]
+        }
+      ]
+      ''');
+
+      final question = (result as BankSuccess).questions.single;
+      // نفس القيمة (٣٠) لجوابين — لازم يضلوا بترتيبهم الأصلي بالملف.
+      expect(
+        question.answers.map((a) => a.text).toList(),
+        ['أول ٣٠', 'تاني ٣٠', '٢٠'],
+      );
+    });
+
     test('id and category are optional', () {
       final result = QuestionBank.parse(
         '[{"text": "سؤال", "answers": [{"text": "أ", "points": 10}, {"text": "ب", "points": 5}]}]',
@@ -267,8 +289,61 @@ void main() {
       expect(await store.bankQuestionCount(), 2);
     });
 
+    test(
+      'a failed import leaves the previously imported bank in place',
+      () async {
+        const firstJson =
+            '[{"text": "سؤال ١", "answers": [{"text": "أ", "points": 10}, {"text": "ب", "points": 5}]}, '
+            '{"text": "سؤال ٢", "answers": [{"text": "أ", "points": 10}, {"text": "ب", "points": 5}]}]';
+        final firstResult = await store.importBank(firstJson, 'A');
+        expect(firstResult, isA<BankSuccess>());
+
+        final secondResult = await store.importBank('[]', 'B');
+        expect(secondResult, isA<BankFailure>());
+
+        expect(await store.bankName(), 'A');
+        expect(await store.bankQuestionCount(), 2);
+        final questions = await store.questions();
+        expect(questions.length, 2);
+        expect(questions.map((q) => q.text).toList(), ['سؤال ١', 'سؤال ٢']);
+      },
+    );
+
     test('readQuestionIds starts out empty', () async {
       expect(await store.readQuestionIds(), isEmpty);
+    });
+
+    test('readQuestionIds tolerates a corrupt read_ids.json', () async {
+      final readIdsFile = File('${dir.path}/read_ids.json');
+      await readIdsFile.writeAsString('{not valid json');
+
+      expect(await store.readQuestionIds(), isEmpty);
+
+      // markQuestionRead should still work despite the corrupt file.
+      final bank = [
+        const Question(id: 'q1', text: 'س1', category: 'عام', answers: [
+          Answer(text: 'أ', points: 10),
+          Answer(text: 'ب', points: 5),
+        ]),
+        const Question(id: 'q2', text: 'س2', category: 'عام', answers: [
+          Answer(text: 'أ', points: 10),
+          Answer(text: 'ب', points: 5),
+        ]),
+      ];
+      await store.markQuestionRead('q1', bank: bank);
+      expect(await store.readQuestionIds(), {'q1'});
+    });
+
+    test('bankName/bankQuestionCount tolerate a corrupt bank_meta.json', () async {
+      const validJson =
+          '[{"text": "سؤال", "answers": [{"text": "أ", "points": 10}, {"text": "ب", "points": 5}]}]';
+      await store.importBank(validJson, 'بنكي');
+
+      final metaFile = File('${dir.path}/bank_meta.json');
+      await metaFile.writeAsString('{not valid json');
+
+      expect(await store.bankName(), isNull);
+      expect(await store.bankQuestionCount(), 0);
     });
 
     test('markQuestionRead adds the id to the read set', () async {

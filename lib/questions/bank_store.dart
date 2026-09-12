@@ -34,11 +34,18 @@ class BankStore {
   }
 
   /// الأسئلة اللي انقرأت قبل — ما بترجع لحد ما يخلص البنك.
+  ///
+  /// ملف تالف أو بشكل غير متوقع بيتعامل معه متل لو كان غير موجود (فاضي) —
+  /// نفس تصرّف `SharedPreferences` الافتراضي بالنسخة الأصلية.
   Future<Set<String>> readQuestionIds() async {
     if (!await _readIdsFile.exists()) return <String>{};
-    final decoded = jsonDecode(await _readIdsFile.readAsString());
-    if (decoded is! List) return <String>{};
-    return decoded.map((e) => e as String).toSet();
+    try {
+      final decoded = jsonDecode(await _readIdsFile.readAsString());
+      if (decoded is! List) return <String>{};
+      return decoded.map((e) => e as String).toSet();
+    } catch (_) {
+      return <String>{};
+    }
   }
 
   /// المضيف شاف السؤال — منسجّله حتى ما يتكرر باللعبة الجاية. [bank] هو
@@ -78,22 +85,30 @@ class BankStore {
   Future<String?> bankName() async {
     if (!await _bankFile.exists()) return null;
     final meta = await _readMeta();
-    return meta?['name'] as String?;
+    final name = meta?['name'];
+    return name is String ? name : null;
   }
 
   Future<int> bankQuestionCount() async {
     final meta = await _readMeta();
-    return meta?['count'] as int? ?? 0;
+    final count = meta?['count'];
+    return count is int ? count : 0;
   }
 
   Future<void> _writeReadIds(Set<String> ids) async {
     await _readIdsFile.writeAsString(jsonEncode(ids.toList()));
   }
 
+  /// ملف تالف أو بشكل غير متوقع بيرجع `null` — يعني بدون اسم/عدد، نفس
+  /// تصرّف `SharedPreferences` الافتراضي بالنسخة الأصلية.
   Future<Map<String, dynamic>?> _readMeta() async {
     if (!await _metaFile.exists()) return null;
-    final decoded = jsonDecode(await _metaFile.readAsString());
-    return decoded is Map<String, dynamic> ? decoded : null;
+    try {
+      final decoded = jsonDecode(await _metaFile.readAsString());
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _writeMeta(String name, int count) async {
