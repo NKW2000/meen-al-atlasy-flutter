@@ -152,6 +152,40 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets(
+      'AwardBanner fades out over its Kotlin timing when the award clears',
+      (tester) async {
+    final base = freshState();
+    final withAward = base.copyWith(
+      phase: RoundPhase.roundEnd,
+      lastAward: const Award(teamId: TeamId.team1, points: 40),
+    );
+    final withoutAward = withAward.copyWith(lastAward: null);
+
+    await pumpComponent(tester, AwardBanner(state: withAward));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
+      1.0,
+    );
+
+    await pumpComponent(tester, AwardBanner(state: withoutAward));
+    expect(tester.takeException(), isNull);
+
+    // fadeOut(160ms) بالكوتلن — بعد ٢٠٠ مللي ثانية لازم يكون خلص التلاشي.
+    // البانر لازم يضل يعرض آخر جايزة وصلته أثناء الخروج (زي
+    // AnimatedVisibility بالكوتلن)، مش يختفي فجأة لأنه lastAward صار null.
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
+      0.0,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('RoundBlock and InfoBlock render without exceptions', (tester) async {
     await pumpComponent(
       tester,
@@ -550,6 +584,76 @@ void main() {
       expect(visibilities, hasLength(2));
       expect(visibilities[0].visible, isTrue, reason: 'الوجه الأخضر ظاهر');
       expect(visibilities[1].visible, isFalse, reason: 'الوجه الكريمي مخفي');
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets(
+        'a later reveal with a bigger revealDelay still settles (cap follows the stagger)',
+        (tester) async {
+      final key = GlobalKey();
+      var answer = const Answer(text: 'جواب', points: 40, revealed: false);
+      var revealDelay = 0.0;
+
+      Widget build() => SizedBox(
+            width: 300,
+            height: 56,
+            child: AnswerSlotRow(
+              key: key,
+              position: 1,
+              answer: answer,
+              enabled: true,
+              revealDelay: revealDelay,
+            ),
+          );
+
+      await pumpComponent(tester, build());
+      expect(tester.takeException(), isNull);
+
+      // كشف أول مرة بدون تأخير — سقف الساعة هون ١٫١ ثانية.
+      answer = const Answer(text: 'جواب', points: 40, revealed: true);
+      await pumpComponent(tester, build());
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(tester.takeException(), isNull);
+
+      // ترجع تختفي.
+      answer = const Answer(text: 'جواب', points: 40, revealed: false);
+      await pumpComponent(tester, build());
+      expect(tester.takeException(), isNull);
+
+      // كشف تاني بتأخير أكبر (revealDelay = 1.0 ثانية، سقف جديد = ٢٫١
+      // ثانية). قبل تصحيح الـ Critical fix كان سقف الساعة (cap) ضايل
+      // مجمّد على قيمة أول كشف (١٫١)، فكانت الساعة بتوقف قبل ما الانقلاب
+      // أو نطّة النقاط تخلص — هون منتأكد إنه سقف الساعة بيتحدّث مع كل
+      // إعادة تشغيل.
+      revealDelay = 1.0;
+      answer = const Answer(text: 'جواب', points: 40, revealed: true);
+      await pumpComponent(tester, build());
+      await tester.pump(const Duration(milliseconds: 2200));
+      expect(tester.takeException(), isNull);
+
+      // الوجه الأخضر (المكشوف) ظاهر — يعني الانقلاب خلص فعلاً.
+      final visibilities =
+          tester.widgetList<Visibility>(find.byType(Visibility)).toList();
+      expect(visibilities, hasLength(2));
+      expect(visibilities[0].visible, isTrue, reason: 'الوجه الأخضر ظاهر');
+      expect(visibilities[1].visible, isFalse, reason: 'الوجه الكريمي مخفي');
+
+      // نص الجواب الحقيقي ظاهر بالشجرة.
+      expect(find.text('جواب'), findsWidgets);
+
+      // نطّة النقاط (thump) خلصت واستقرت على قياس ١ — هاي بالضبط اللي
+      // كانت بتضل عالقة عند صفر لو الساعة وقفت قبل الأوان.
+      final pointsTexts = find.text('٤٠');
+      expect(pointsTexts, findsNWidgets(2));
+      for (final element in pointsTexts.evaluate()) {
+        final transformFinder = find.ancestor(
+          of: find.byWidget(element.widget),
+          matching: find.byType(Transform),
+        );
+        final transform = tester.widget<Transform>(transformFinder.first);
+        expect(transform.transform.getMaxScaleOnAxis(), closeTo(1.0, 1e-6));
+      }
 
       await tester.pumpWidget(const SizedBox());
     });

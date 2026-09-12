@@ -102,12 +102,18 @@ class _AwardBannerState extends State<AwardBanner>
       .animate(CurvedAnimation(parent: _enter, curve: Curves.fastOutSlowIn));
   late bool _wasVisible = _visible;
 
+  /// آخر جايزة وصلتنا — منضل نعرضها أثناء التلاشي (fadeOut) حتى لو
+  /// [GameState.lastAward] صار null بعدها، تماماً متل `AnimatedVisibility`
+  /// بالكوتلن اللي بيحتفظ بآخر محتوى مركّب طول حركة الخروج.
+  Award? _lastRendered;
+
   bool get _visible =>
       widget.state.lastAward != null && widget.state.roundOver;
 
   @override
   void initState() {
     super.initState();
+    _lastRendered = widget.state.lastAward;
     // إذا الصف تركّب وهو أصلاً ظاهر (مثلاً بعد hot restart)، ما في داعي
     // لضربة الدخول — منثبّته على القياس النهائي فوراً.
     if (_visible) _enter.value = 1;
@@ -116,6 +122,9 @@ class _AwardBannerState extends State<AwardBanner>
   @override
   void didUpdateWidget(covariant AwardBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.state.lastAward != null) {
+      _lastRendered = widget.state.lastAward;
+    }
     if (_visible && !_wasVisible) {
       _enter.forward(from: 0);
     }
@@ -130,7 +139,7 @@ class _AwardBannerState extends State<AwardBanner>
 
   @override
   Widget build(BuildContext context) {
-    final award = widget.state.lastAward;
+    final award = _lastRendered;
     if (award == null) return const SizedBox.shrink();
 
     final teamName = widget.state.teams[award.teamId]?.name ?? '';

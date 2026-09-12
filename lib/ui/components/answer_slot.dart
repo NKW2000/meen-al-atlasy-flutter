@@ -65,12 +65,16 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
   bool _animating = false;
 
   /// ساعة واحدة طول عمر الصف — SingleTickerProviderStateMixin بيرفض
-  /// نطلب منه Ticker تاني، فمنعيد تشغيل (restart) نفس الساعة كل ما تنكشف
-  /// الخانة من جديد، بدل ما نعمل ساعة جديدة كل مرة.
-  late final ShowClock _clock =
-      ShowClock(this, cap: widget.revealDelay + _flipTime + 0.6);
+  /// نطلب منه Ticker تاني، فمنعملها مرة وحدة أول ما تنكشف الخانة (مش من
+  /// أول ما يتركّب الصف حتى ما نطلب Ticker إذا الخانة ما انكشفت أبداً)،
+  /// وبعدين منعيد تشغيلها (restart) كل ما تنكشف من جديد بدل ما نعمل ساعة
+  /// جديدة كل مرة. سقف الساعة [ShowClock.cap] لازم ينحدّث قبل كل إعادة
+  /// تشغيل لأنه [revealDelay] ممكن يختلف بين دورة كشف وتانية.
+  ShowClock? _clock;
 
   bool get _revealed => widget.answer?.revealed ?? false;
+
+  double get _cap => widget.revealDelay + _flipTime + 0.6;
 
   @override
   void initState() {
@@ -89,17 +93,25 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
     final animate = _revealed && _seenHidden;
     if (animate == _animating) return;
     _animating = animate;
-    if (animate) _clock.restart();
+    if (animate) {
+      final clock = _clock;
+      if (clock == null) {
+        _clock = ShowClock(this, cap: _cap);
+      } else {
+        clock.cap = _cap;
+        clock.restart();
+      }
+    }
   }
 
   @override
   void dispose() {
-    _clock.dispose();
+    _clock?.dispose();
     super.dispose();
   }
 
   double _now() {
-    if (_animating) return _clock.value;
+    if (_animating) return _clock?.value ?? 0;
     if (_revealed) return _settled;
     return 0;
   }
@@ -132,8 +144,10 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
     }
 
     if (_animating) {
+      // _clock مضمون غير null هون: ما بنخلّي _animating=true إلا بعد ما
+      // ننشئ الساعة بـ _syncClock().
       return ListenableBuilder(
-        listenable: _clock,
+        listenable: _clock!,
         builder: (context, _) => _buildFaces(context, answer, shape),
       );
     }

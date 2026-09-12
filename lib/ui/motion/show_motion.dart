@@ -171,7 +171,9 @@ Map<int, double> revealDelays(
 /// أو `TickerProviderStateMixin`).
 class ShowClock extends ValueNotifier<double> {
   final TickerProvider vsync;
-  final double cap;
+  // مش final: بعض المشاهد (متل AnswerSlotRow) بتغيّر سقف الساعة بين كل
+  // دورة كشف وتانية (تبعاً لـ revealDelay الجديد) قبل ما تعيد التشغيل.
+  double cap;
   // Ticker واحد بس طول عمر الساعة — TickerProviderStateMixin بيرفض ثاني
   // نداء لـ createTicker من نفس الـ State، فما منعيد إنشاءه، منوقّفه
   // ومنرجّع نشغّله (Ticker.start() بيصفّر الوقت المنقضي لحاله).
