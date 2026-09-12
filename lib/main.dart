@@ -8,6 +8,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,12 +21,19 @@ import 'app/scope.dart';
 import 'app/settings_repository.dart';
 import 'game/settings.dart';
 import 'network/host_server.dart';
+import 'network/local_ip.dart';
 import 'network/player_client.dart';
 import 'network/room_beacon.dart';
 import 'network/room_discovery.dart';
+import 'ui/components/confirm_dialog.dart';
+import 'ui/components/error_snackbar.dart';
 import 'ui/home/home_screen.dart';
+import 'ui/host/host_lobby_screen.dart';
 import 'ui/host/host_settings_screen.dart';
 import 'ui/intro/intro_screen.dart';
+import 'ui/player/player_join_screen.dart';
+import 'ui/player/player_lobby.dart';
+import 'ui/player/room_list_screen.dart';
 import 'ui/settings/bank_settings_screen.dart';
 import 'ui/theme.dart';
 
@@ -135,20 +143,32 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
         ),
       );
 
+    case 'hostLobby':
+      page = const _HostLobbyRoute();
+
+    case 'playerJoin':
+      page = Builder(
+        builder: (context) => PlayerJoinScreen(
+          onJoinConfirmed: (name) {
+            // الاسم أول، وبعدين بيختار الغرفة من اللستة.
+            AppScope.of(context).player.join(name);
+            Navigator.of(context).pushNamed('playerRooms');
+          },
+        ),
+      );
+
+    case 'playerRooms':
+      page = const _PlayerRoomsRoute();
+
+    case 'playerBuzzer':
+      page = const _PlayerBuzzerRoute();
+
     // الشاشات الجاية بمهام لاحقة — مسار مؤقت حتى تشتغل شبكة التنقّل
     // وتنعمل تجربة دخان (smoke test) عليها.
-    case 'hostLobby':
-      page = _placeholder('hostLobby'); // TODO(task 9)
     case 'hostBoard':
       page = _placeholder('hostBoard'); // TODO(task 10)
     case 'hostResult':
       page = _placeholder('hostResult'); // TODO(task 10)
-    case 'playerJoin':
-      page = _placeholder('playerJoin'); // TODO(task 11)
-    case 'playerRooms':
-      page = _placeholder('playerRooms'); // TODO(task 11)
-    case 'playerBuzzer':
-      page = _placeholder('playerBuzzer'); // TODO(task 11)
 
     default:
       page = _placeholder(routeSettings.name ?? '?');
@@ -259,6 +279,233 @@ class _HostSettingsRouteState extends State<_HostSettingsRoute> {
       onContinue: () => Navigator.of(context).pushNamed('hostLobby'),
       answerBounds: _bounds,
       matchingQuestions: _matching,
+    );
+  }
+}
+
+/// غلاف مسار لوبي المضيف: بيسمع [HostController]، وبيقرأ عنوان الواي
+/// فاي كل شوي (المضيف ممكن يشغّل الواي فاي أو نقطة الاتصال وهو عالشاشة)
+/// حتى يبيّن العنوان وكود الغرفة — نفس `HOST_SETUP` بـ`FeudNavGraph.kt`،
+/// زائد الإضافة الوحيدة بالمواصفة (§3).
+class _HostLobbyRoute extends StatefulWidget {
+  const _HostLobbyRoute();
+
+  @override
+  State<_HostLobbyRoute> createState() => _HostLobbyRouteState();
+}
+
+class _HostLobbyRouteState extends State<_HostLobbyRoute> {
+  InternetAddress? _ip;
+  Timer? _ipTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshIp());
+    _ipTimer = Timer.periodic(const Duration(seconds: 3), (_) => unawaited(_refreshIp()));
+  }
+
+  Future<void> _refreshIp() async {
+    final ip = await wifiIPv4();
+    if (!mounted || ip?.address == _ip?.address) return;
+    setState(() => _ip = ip);
+  }
+
+  @override
+  void dispose() {
+    _ipTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final host = scope.host;
+    return ListenableBuilder(
+      listenable: host,
+      builder: (context, _) => ErrorSnackbar(
+        message: host.lastError,
+        onShown: host.dismissError,
+        child: HostLobbyScreen(
+          roomName: scope.settings.roomName,
+          teams: host.state.teams,
+          players: host.state.players,
+          advertising: host.advertising,
+          minPerTeam: HostController.minPlayersPerTeam,
+          ip: _ip,
+          onStartHosting: () => unawaited(host.startHosting()),
+          onMovePlayer: host.movePlayer,
+          onBeginGame: () {
+            host.startGame();
+            Navigator.of(context).pushNamed('hostBoard');
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// غلاف مسار لستة الغرف: أول ما نتصل بغرفة، بنفوت على شاشة اللعب —
+/// نفس `PLAYER_ROOMS` بـ`FeudNavGraph.kt`. الرجوع بيوقّف البحث.
+class _PlayerRoomsRoute extends StatefulWidget {
+  const _PlayerRoomsRoute();
+
+  @override
+  State<_PlayerRoomsRoute> createState() => _PlayerRoomsRouteState();
+}
+
+class _PlayerRoomsRouteState extends State<_PlayerRoomsRoute> {
+  PlayerController? _player;
+  bool _navigated = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final player = AppScope.of(context).player;
+    if (identical(player, _player)) return;
+    _player?.removeListener(_onPlayerChanged);
+    _player = player..addListener(_onPlayerChanged);
+    _onPlayerChanged();
+  }
+
+  void _onPlayerChanged() {
+    if (_navigated || _player!.status != ConnectionStatus.connected) return;
+    _navigated = true;
+    // بعد الإطار الحالي — `notifyListeners` ممكن يجي من جوّا build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pushReplacementNamed('playerBuzzer');
+    });
+  }
+
+  @override
+  void dispose() {
+    _player?.removeListener(_onPlayerChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final player = AppScope.of(context).player;
+    return ListenableBuilder(
+      listenable: player,
+      builder: (context, _) => ErrorSnackbar(
+        message: player.lastError,
+        onShown: player.dismissError,
+        child: RoomListScreen(
+          playerName: player.pendingName ?? '',
+          rooms: player.rooms,
+          onPick: (room) => unawaited(player.enterRoom(room)),
+          onEnterCode: (code) => unawaited(player.enterCode(code)),
+          onBack: () {
+            unawaited(player.stopDiscovery());
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// غلاف مسار جهاز اللاعب — نفس `PLAYER_BUZZER` بـ`FeudNavGraph.kt`:
+/// اللوبي قبل ما تبلّش اللعبة، وحوار «انقطعت/تطلع؟» بالرجوع أو لما
+/// ينقطع الاتصال، بخيارين: ارجع لنفس اللعبة (`rejoin`) أو اطلع عالرئيسية.
+/// شاشات اللعب نفسها (الزر واللوح) مهمة لاحقة (Task 10).
+class _PlayerBuzzerRoute extends StatefulWidget {
+  const _PlayerBuzzerRoute();
+
+  @override
+  State<_PlayerBuzzerRoute> createState() => _PlayerBuzzerRouteState();
+}
+
+class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
+  PlayerController? _player;
+  bool _showLeft = false;
+  ConnectionStatus? _lastStatus;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final player = AppScope.of(context).player;
+    if (identical(player, _player)) return;
+    _player?.removeListener(_onPlayerChanged);
+    _player = player..addListener(_onPlayerChanged);
+    _lastStatus = player.status;
+  }
+
+  /// `LaunchedEffect(status) { if (DISCONNECTED) showLeft = true }`.
+  void _onPlayerChanged() {
+    final status = _player!.status;
+    if (status == _lastStatus) return;
+    _lastStatus = status;
+    if (status == ConnectionStatus.disconnected && !_showLeft) {
+      setState(() => _showLeft = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _player?.removeListener(_onPlayerChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final player = AppScope.of(context).player;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_showLeft) setState(() => _showLeft = true);
+      },
+      child: ListenableBuilder(
+        listenable: player,
+        builder: (context, _) {
+          final live = player.state;
+          final connected = player.status == ConnectionStatus.connected;
+
+          final Widget body;
+          if (connected && live != null && !live.matchStarted && !live.gameOver) {
+            // قبل ما يبلّش المضيف (وكمان بعد ما يرجّع اللوبي): اللاعب
+            // بيشوف رقمه وفريقه وبيقدر يبدّل.
+            body = PlayerLobbyScreen(
+              state: live,
+              playerId: player.playerId,
+              teamId: player.teamId,
+              onChangeTeam: player.changeTeam,
+            );
+          } else {
+            body = _placeholder('playerBuzzer'); // TODO(task 10): PlayerScreen
+          }
+
+          return ErrorSnackbar(
+            message: player.lastError,
+            onShown: player.dismissError,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                body,
+                if (_showLeft)
+                  ConfirmDialog(
+                    title: player.status == ConnectionStatus.disconnected
+                        ? 'انقطعت عن اللعبة'
+                        : 'تطلع من اللعبة؟',
+                    message: 'بتقدر ترجع لنفس اللعبة، أو تطلع وتبلّش من جديد.',
+                    confirmText: 'ارجع لللعبة',
+                    dismissText: 'اطلع وابدأ من جديد',
+                    confirmColor: FeudColors.lime,
+                    onConfirm: () {
+                      setState(() => _showLeft = false);
+                      unawaited(player.rejoin());
+                    },
+                    onDismiss: () {
+                      setState(() => _showLeft = false);
+                      Navigator.of(context).popUntil((route) => route.settings.name == 'home');
+                    },
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
