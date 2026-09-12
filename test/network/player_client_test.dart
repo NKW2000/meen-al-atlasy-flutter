@@ -69,5 +69,56 @@ void main() {
 
       await sub.cancel();
     }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test(
+      'a fresh connect() after a previous session sends no playerId, even '
+      'though the field still remembers the old one (review critical #2)',
+      () async {
+        await server.start(port: 0);
+        final received = <ClientEvent>[];
+        final sub = server.events.listen(received.add);
+
+        await client.connect(
+          host: InternetAddress.loopbackIPv4,
+          port: server.port,
+          playerName: 'أ',
+        );
+        await Future.doWhile(() async {
+          if (received.length >= 2) return false;
+          await Future.delayed(const Duration(milliseconds: 20));
+          return true;
+        }).timeout(const Duration(seconds: 5));
+
+        final firstEndpoint = received[0].endpointId;
+        server.send(firstEndpoint, Assigned(playerId: 'ep0', teamId: TeamId.team1));
+        await waitForValue(client.playerId, (v) => v == 'ep0');
+
+        // اتصال **جديد** — مو rejoin — مثلاً اللاعب دخل غرفة/لعبة تانية.
+        // معرّف 'ep0' القديم لازم يترك، حتى لو لسا محفوظ بحقل الحالة.
+        await client.connect(
+          host: InternetAddress.loopbackIPv4,
+          port: server.port,
+          playerName: 'أ',
+        );
+
+        await Future.doWhile(() async {
+          if (received.whereType<ClientMessageReceived>().length >= 2) {
+            return false;
+          }
+          await Future.delayed(const Duration(milliseconds: 20));
+          return true;
+        }).timeout(const Duration(seconds: 5));
+
+        final secondJoin = received
+            .whereType<ClientMessageReceived>()
+            .last
+            .message as JoinMessage;
+        expect(secondJoin.playerId, isNull);
+        expect(client.playerId.value, isNull);
+
+        await sub.cancel();
+      },
+      timeout: const Timeout(Duration(seconds: 20)),
+    );
   });
 }

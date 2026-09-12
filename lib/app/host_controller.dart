@@ -61,7 +61,12 @@ class HostController extends ChangeNotifier {
   }
 
   late GameEngine _engine;
-  late final StreamSubscription<ClientEvent> _sub;
+
+  /// اشتراكنا الحالي على أحداث الشبكة. `HostServer.stop()` بيسكّر
+  /// الـ`StreamController` الداخلي و`start()` بيعمل واحد جديد، فلازم
+  /// نعيد الاشتراك بعد كل `startHosting()` (مو بس بالمُنشئ) وإلا كل
+  /// أحداث اللعبة الجديدة بعد `resetSession()` بتضيع (بند حرج بالمراجعة).
+  StreamSubscription<ClientEvent>? _sub;
 
   /// كل جهاز متصل = لاعب واحد؛ منستعمل معرّف الاتصال (endpoint) كمفتاح،
   /// ومعرّف اللاعب الثابت كقيمة — والعكس لإرسال رسائل مباشرة لنقطة نهاية.
@@ -93,8 +98,7 @@ class HostController extends ChangeNotifier {
   /// لعبة جديدة: بنسكّر الاتصالات القديمة وبنرجع الحالة من الصفر. بدونها
   /// بيرجع المضيف على نفس اللوبي القديم بنفس اللاعبين والنقاط.
   Future<void> resetSession() async {
-    _clockTimer?.cancel();
-    _clockTimer = null;
+    _stopClock();
     _started = false;
     _endpointToPlayer.clear();
     _playerToEndpoint.clear();
@@ -107,10 +111,11 @@ class HostController extends ChangeNotifier {
 
   /// لعبة جديدة **بنفس الغرفة**: اللاعبين بيضلوا متصلين وبيرجعوا للوبي
   /// يختاروا فرقهم، والنقاط والأسئلة بتبلّش من جديد. البثّ ما بيوقف —
-  /// والمنارة (اللي startGame وقّفها) بترجع تشتغل.
+  /// والمنارة (اللي startGame وقّفها) بترجع تشتغل — بس إذا كنا أصلاً عم
+  /// نستضيف (بند بسيط بالمراجعة؛ `resetSession` هو الطريق الوحيد لوقف
+  /// الاستضافة كليّاً).
   Future<void> backToLobby() async {
-    _clockTimer?.cancel();
-    _clockTimer = null;
+    _stopClock();
     _started = false;
     final players = List<Player>.of(_engine.state.players);
     _engine.reset(newGame());
@@ -118,10 +123,12 @@ class HostController extends ChangeNotifier {
       _engine.apply(PlayerJoined(player.id, player.name, player.teamId));
     }
     server.broadcast(StateUpdate(state: _engine.state.maskedForPlayers()));
-    try {
-      await beacon.start(roomName: roomName(), port: server.port);
-    } catch (e) {
-      _lastError = e.toString();
+    if (_advertising) {
+      try {
+        await beacon.start(roomName: roomName(), port: server.port);
+      } catch (e) {
+        _lastError = e.toString();
+      }
     }
     notifyListeners();
   }
@@ -131,9 +138,15 @@ class HostController extends ChangeNotifier {
     _advertising = true;
     try {
       await server.start();
+      // `server.start()` بينشئ دفق أحداث جديد إذا كان القديم انسكّر
+      // (مثلاً بعد `resetSession()`) — لازم نعيد الاشتراك وإلا منضل
+      // نسمع دفق ميت وكل أحداث اللعبة الجديدة بتضيع بصمت.
+      await _sub?.cancel();
+      _sub = server.events.listen(_onClientEvent);
       await beacon.start(roomName: roomName(), port: server.port);
     } catch (e) {
       _lastError = e.toString();
+      _advertising = false;
     }
     notifyListeners();
   }
@@ -176,8 +189,7 @@ class HostController extends ChangeNotifier {
   void nextRound() => _applyAndBroadcast(const NextRound());
 
   void endGame() {
-    _clockTimer?.cancel();
-    _clockTimer = null;
+    _stopClock();
     _applyAndBroadcast(const EndGame());
   }
 
@@ -228,9 +240,11 @@ class HostController extends ChangeNotifier {
     }
   }
 
-  /// لاعب جديد انضم، أو قديم رجع بعد انقطاع (حكم المتحكمات ١ب):
-  /// 1. إذا الرسالة حاملة [providedPlayerId] وهو لاعب موجود فعلاً — منعيد
-  ///    ربطه (نفس المعرّف، بس نقطة نهاية جديدة).
+  /// لاعب جديد انضم، أو قديم رجع بعد انقطاع (حكم المتحكمات ١ب، ومعدّل
+  /// بمراجعة الحرجة/المهمة #٢-#٣):
+  /// 1. إذا الرسالة حاملة [providedPlayerId] وهو لاعب موجود فعلاً، ومسموح
+  ///    الرجوع بيه (`_canReattachById` — شوف تعليقها) — منعيد ربطه (نفس
+  ///    المعرّف، بس نقطة نهاية جديدة).
   /// 2. وإلا إذا في لاعب **منقطع** بنفس الاسم — منعيد ربطه هو.
   /// 3. وإلا لاعب جديد كليّاً، معرّفه = معرّف نقطة النهاية.
   void _addPlayer(
@@ -240,17 +254,13 @@ class HostController extends ChangeNotifier {
     String? providedPlayerId,
   ) {
     String? reattachId;
-    if (providedPlayerId != null &&
-        _engine.state.player(providedPlayerId) != null) {
-      reattachId = providedPlayerId;
-    } else {
-      for (final p in _engine.state.players) {
-        if (!p.connected && p.name == name) {
-          reattachId = p.id;
-          break;
-        }
+    if (providedPlayerId != null) {
+      final existingById = _engine.state.player(providedPlayerId);
+      if (existingById != null && _canReattachById(existingById, name)) {
+        reattachId = providedPlayerId;
       }
     }
+    reattachId ??= _disconnectedPlayerByName(name);
 
     final playerId = reattachId ?? endpointId;
     final existing = _engine.state.player(playerId);
@@ -258,10 +268,41 @@ class HostController extends ChangeNotifier {
     final teamId = wanted ?? existing?.teamId ?? _smallerTeam();
 
     _endpointToPlayer[endpointId] = playerId;
+    // إذا في نقطة نهاية قديمة كانت مربوطة بنفس اللاعب — مثلاً رجع بنقطة
+    // نهاية جديدة قبل ما توصلنا إشعار انقطاع القديمة لسا (سباق شبكة عادي)
+    // — منفصلها فوراً حتى ما يوصل منها قطع اتصال متأخر يطرد اللاعب الحيّ
+    // الجديد (بند مهم #٣ بالمراجعة).
+    final oldEndpoint = _playerToEndpoint[playerId];
+    if (oldEndpoint != null && oldEndpoint != endpointId) {
+      _endpointToPlayer.remove(oldEndpoint);
+    }
     _playerToEndpoint[playerId] = endpointId;
 
     server.send(endpointId, Assigned(playerId: playerId, teamId: teamId));
     _applyAndBroadcast(PlayerJoined(playerId, name, teamId));
+  }
+
+  /// دفاع إضافي (بند حرج #٢-ب بالمراجعة): معرّفات نقاط النهاية
+  /// (`ep0, ep1, …`) بترجع تتكرر بكل مضيف جديد، فجهاز بعت معرّف قديم من
+  /// لعبة/مضيف سابق ممكن — بمحض الصدفة — يطابق معرّف لاعب **حيّ حالياً**
+  /// بهاي اللعبة. المدافعة الأساسية عند العميل (`PlayerClient.connect`
+  /// ما بيبعت معرّف محفوظ إلا بـ`rejoin`)، وهاي دفاع ثاني عند المضيف:
+  /// منقبل الرجوع بمعرّف للاعب "حيّ" (عنده نقطة نهاية مربوطة حالياً) بس
+  /// لو نفس الاسم بالضبط — يعني نفس الجهاز عم يرجع يتصل بسباق شبكة
+  /// (نقطة نهايته القديمة سكّرت فعلياً بس إشعار الانقطاع لسا ما وصلنا).
+  /// اسم مختلف مع معرّف "حيّ" = على الأرجح تصادف معرّفات، مش نفس الجهاز
+  /// — فمنرفضه ومنعامل الطلب كلاعب جديد كليّاً.
+  bool _canReattachById(Player existing, String claimedName) {
+    final liveEndpoint = _playerToEndpoint[existing.id];
+    if (liveEndpoint == null) return true;
+    return existing.name == claimedName;
+  }
+
+  String? _disconnectedPlayerByName(String name) {
+    for (final p in _engine.state.players) {
+      if (!p.connected && p.name == name) return p.id;
+    }
+    return null;
   }
 
   /// اللاعب الجديد بيروح للفريق الأقل عدداً حتى تضل الفرق متوازنة.
@@ -274,9 +315,11 @@ class HostController extends ChangeNotifier {
   void _handleDisconnect(String endpointId) {
     final playerId = _endpointToPlayer.remove(endpointId);
     if (playerId == null) return;
-    // ما منشيل _playerToEndpoint هون لأنه إعادة الاتصال ممكن توصل بنقطة
-    // نهاية جديدة وتحدّثه أصلاً؛ خريطة قديمة ما بتضرّ لأنها ما بتستعمل
-    // إلا لما اللاعب يكون بلستة اللاعبين المتصلين حالياً (movePlayer).
+    // نقطة النهاية هاي مش الحالية المرتبطة باللاعب — يعني رجع أصلاً
+    // بنقطة نهاية جديدة و[_addPlayer] فصل القديمة، وهاد إشعار انقطاع
+    // متأخر وصل بعدين. منتجاهله حتى ما نطرد اللاعب الحيّ (بند مهم #٣).
+    if (_playerToEndpoint[playerId] != endpointId) return;
+    _playerToEndpoint.remove(playerId);
     _applyAndBroadcast(PlayerLeft(playerId));
   }
 
@@ -288,14 +331,18 @@ class HostController extends ChangeNotifier {
     _clockTimer = Timer.periodic(tick, (timer) {
       final current = _engine.state;
       if (current.gameOver) {
-        timer.cancel();
-        _clockTimer = null;
+        _stopClock();
         return;
       }
       if (current.answerSecondsLeft > 0 || current.choiceSecondsLeft > 0) {
         _applyAndBroadcast(const Tick());
       }
     });
+  }
+
+  void _stopClock() {
+    _clockTimer?.cancel();
+    _clockTimer = null;
   }
 
   void _applyAndBroadcast(GameEvent event) {
@@ -317,9 +364,9 @@ class HostController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _clockTimer?.cancel();
-    _clockTimer = null;
-    unawaited(_sub.cancel());
+    _stopClock();
+    final sub = _sub;
+    if (sub != null) unawaited(sub.cancel());
     unawaited(server.stop());
     unawaited(beacon.stop());
     super.dispose();

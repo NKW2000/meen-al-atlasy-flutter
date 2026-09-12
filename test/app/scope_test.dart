@@ -58,6 +58,7 @@ class _NoopPlayerTransport implements PlayerTransport {
     required int port,
     required String playerName,
     TeamId? teamId,
+    String? playerId,
   }) async {}
   @override
   void send(ClientMessage m) {}

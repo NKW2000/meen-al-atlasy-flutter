@@ -10,6 +10,17 @@
 /// (`getApplicationSupportDirectory()` بالتطبيق الحقيقي)، ونسخة
 /// `SharedPreferences` (حتى تقدر الاختبارات تستعمل
 /// `SharedPreferences.setMockInitialValues({})`).
+///
+/// **لقطة متزامنة (قرار مراجعة الخيار ب):** [HostController.newGame] و
+/// أخواتها لازم تكون دوال **متزامنة** (`GameState Function()`, نفس
+/// `HostViewModel.kt` بالضبط)، بينما قراءة `SharedPreferences`/ملفات
+/// البنك بـDart غير متزامنة (بعكس Kotlin). الحل: هاد الصنف بيحتفظ بنسخة
+/// بالذاكرة من الإعدادات والبنك وسجل القراءة، بتتحدّث بآخر كل دالة كتابة
+/// (`save`/`importBank`/`clearBank`/`markQuestionRead`/`clearReadQuestions`)
+/// وبتتعبّى أول مرة بـ[warmUp] (تنستنى مرة وحدة عند الإقلاع). فوقها
+/// [current]/[roomName]/[newGameStateSync]/[freshQuestionSync] بيرجّعوا
+/// آخر نسخة محفوظة فوراً بدون انتظار. [newGameState] (النسخة غير
+/// المتزامنة) ضلّت متل ما هي — قراءة حيّة من التخزين بكل نداء.
 library;
 
 import 'dart:io';
@@ -27,6 +38,10 @@ class SettingsRepository {
 
   SettingsRepository(this._prefs, Directory bankDirectory)
       : _bankStore = BankStore(bankDirectory);
+
+  GameSettings _cachedSettings = const GameSettings();
+  List<Question> _cachedBank = const [];
+  Set<String> _cachedReadIds = const {};
 
   static const _keyRounds = 'rounds';
   static const _keyMultipliers = 'multipliers';
@@ -82,6 +97,19 @@ class SettingsRepository {
     await _prefs.setInt(_keyMaxAnswers, safe.maxAnswers);
     await _prefs.setString(_keyTeam1, safe.teamName(TeamId.team1));
     await _prefs.setString(_keyTeam2, safe.teamName(TeamId.team2));
+    await _refreshCache();
+  }
+
+  /// بيعبّي اللقطة المتزامنة (إعدادات + بنك + سجل قراءة) أول مرة. لازم
+  /// تنستنى قبل أي استعمال لـ[current]/[roomName]/[newGameStateSync]/
+  /// [freshQuestionSync] — المستدعي (`main.dart` لاحقاً) بينادي هاي مرة
+  /// وحدة عند الإقلاع، قبل ما يبني [HostController].
+  Future<void> warmUp() => _refreshCache();
+
+  Future<void> _refreshCache() async {
+    _cachedSettings = await load();
+    _cachedBank = await questions();
+    _cachedReadIds = await readQuestionIds();
   }
 
   /// أسئلة اللعبة: بنك المضيف إذا مستورد، وإلا البنك المرفق.
@@ -126,10 +154,14 @@ class SettingsRepository {
     final filtered = await filteredQuestions();
     final bank = filtered.isNotEmpty ? filtered : await questions();
     await _bankStore.markQuestionRead(id, bank: bank);
+    await _refreshCache();
   }
 
   /// بنك جديد = دورة قراءة جديدة.
-  Future<void> clearReadQuestions() => _bankStore.clearReadQuestions();
+  Future<void> clearReadQuestions() async {
+    await _bankStore.clearReadQuestions();
+    await _refreshCache();
+  }
 
   /// حالة بداية للعبة جديدة: أسئلة ما انقرأت وإعدادات المضيف الحالية.
   Future<GameState> newGameState() async {
@@ -151,9 +183,61 @@ class SettingsRepository {
 
   /// بيتأكد من ملف اختاره المضيف، وبيحفظه. بيرجّع رسالة الخطأ إذا الملف
   /// مش صالح — وبهاي الحالة البنك القديم بيضل شغّال.
-  Future<BankResult> importBank(String text, String displayName) =>
-      _bankStore.importBank(text, displayName);
+  Future<BankResult> importBank(String text, String displayName) async {
+    final result = await _bankStore.importBank(text, displayName);
+    await _refreshCache();
+    return result;
+  }
 
   /// رجوع للبنك المرفق مع التطبيق.
-  Future<void> clearBank() => _bankStore.clearBank();
+  Future<void> clearBank() async {
+    await _bankStore.clearBank();
+    await _refreshCache();
+  }
+
+  // ========================================================================
+  // اللقطة المتزامنة — فوق آخر نسخة عبّاها [warmUp] أو أي دالة كتابة.
+  // ========================================================================
+
+  /// آخر إعدادات معروفة — بدون انتظار (حكم قرار المراجعة، الخيار ب).
+  GameSettings get current => _cachedSettings;
+
+  /// اسم الغرفة الحالي — بدون انتظار.
+  String get roomName => _cachedSettings.roomName;
+
+  List<Question> _filteredFromCache(GameSettings settings) => _cachedBank
+      .where((q) =>
+          q.answers.length >= settings.minAnswers &&
+          q.answers.length <= settings.maxAnswers)
+      .toList();
+
+  /// نفس [newGameState] بس متزامنة، فوق آخر لقطة محفوظة — تقدر تنستعمل
+  /// مباشرة كـ`HostController.newGame`.
+  GameState newGameStateSync() {
+    final settings = _cachedSettings;
+    final filtered = _filteredFromCache(settings);
+    final source = filtered.isNotEmpty ? filtered : _cachedBank;
+    return GameState(
+      questions:
+          QuestionBank.randomGame(settings.rounds, source, readIds: _cachedReadIds),
+      multipliers: settings.multipliersForRounds(),
+      strikesToSteal: settings.strikesToSteal,
+      answerLimitSeconds: settings.answerSeconds,
+      choiceLimitSeconds: settings.choiceSeconds,
+      teams: {
+        for (final id in TeamId.values) id: TeamState(id: id, name: settings.teamName(id)),
+      },
+    );
+  }
+
+  /// سؤال بديل ما انقرأ — نفس منطق `freshQuestion` بـ`FeudNavGraph.kt`
+  /// (سطر ٤٠٠-٤٠٧): سؤال وحيد من بنك مفلتر بإعدادات المضيف الحالية، ما
+  /// انقرأ قبل — أو `null` إذا ما في. تقدر تنستعمل مباشرة كـ
+  /// `HostController.freshQuestion`.
+  Question? freshQuestionSync() {
+    final filtered = _filteredFromCache(_cachedSettings);
+    final source = filtered.isNotEmpty ? filtered : _cachedBank;
+    final picked = QuestionBank.randomGame(1, source, readIds: _cachedReadIds);
+    return picked.isEmpty ? null : picked.first;
+  }
 }

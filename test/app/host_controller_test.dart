@@ -16,7 +16,7 @@ import 'package:meen_al_atlasy/network/room_beacon.dart';
 /// بديل بالذاكرة عن [HostTransport] — بيخلينا نختبر [HostController] بدون
 /// شبكة حقيقية. نفس فكرة `FakeNearbyConnectionsManager.kt`.
 class FakeHostTransport implements HostTransport {
-  final _controller = StreamController<ClientEvent>.broadcast();
+  StreamController<ClientEvent> _controller = StreamController<ClientEvent>.broadcast();
 
   int startCalls = 0;
   int stopCalls = 0;
@@ -37,6 +37,11 @@ class FakeHostTransport implements HostTransport {
     startCalls++;
     started = true;
     _port = port == 0 ? 4000 : port;
+    // نفس `HostServer` الحقيقي: `stop()` بيسكّر الدفق، فلازم واحد جديد
+    // هون وإلا `startHosting()` بتشترك بدفق ميت (بند حرج #١ بالمراجعة).
+    if (_controller.isClosed) {
+      _controller = StreamController<ClientEvent>.broadcast();
+    }
   }
 
   @override
@@ -49,6 +54,7 @@ class FakeHostTransport implements HostTransport {
   Future<void> stop() async {
     stopCalls++;
     started = false;
+    await _controller.close();
   }
 
   void emit(ClientEvent e) => _controller.add(e);
@@ -147,6 +153,30 @@ void main() {
     expect(transport.startCalls, equals(1));
     expect(beacon.startCalls, equals(1));
     expect(vm.advertising, isTrue);
+  });
+
+  test(
+      'startHosting resubscribes to a fresh event stream after '
+      'resetSession recreates it (review critical #1)', () async {
+    final vm = controller();
+    await vm.startHosting();
+    join(transport, ['ep-a']);
+    await pump();
+    expect(vm.state.players, hasLength(1));
+
+    await vm.resetSession();
+    await vm.startHosting();
+
+    // بدون إعادة الاشتراك هون، هاد الحدث كان رح يضيع بصمت لأنه الدفق
+    // القديم (اللي اشتركنا فيه بالمُنشئ) انسكّر مع resetSession().
+    join(transport, ['ep-b']);
+    await pump();
+
+    expect(vm.state.players.map((p) => p.id), contains('ep-b'));
+    expect(
+      transport.sends.last,
+      equals(('ep-b', Assigned(playerId: 'ep-b', teamId: TeamId.team1))),
+    );
   });
 
   test('players are handed out to keep the teams balanced', () async {
@@ -391,6 +421,68 @@ void main() {
     expect(vm.state.buzzedPlayerId, equals('ep-a'));
   });
 
+  test(
+      'an id-based reattach is rejected when the claimed name does not '
+      'match a still-live player (review critical #2, defense in depth)',
+      () async {
+    final vm = controller();
+    join(transport, ['ep0']);
+    await pump();
+    expect(vm.state.player('ep0')!.connected, isTrue);
+
+    // نقطة نهاية ثانية بتدّعي نفس معرّف لاعب حيّ حالياً، باسم مختلف —
+    // بالضبط زي معرّف نقطة نهاية اتكرر بمضيف جديد بمحض الصدفة.
+    transport.emit(ClientMessageReceived(
+      'ep-other',
+      JoinMessage(playerName: 'غريب', playerId: 'ep0'),
+    ));
+    await pump();
+
+    expect(vm.state.players.length, equals(2));
+    expect(vm.state.player('ep0')!.name, equals('ep0')); // ما تغيّر
+    expect(vm.state.player('ep-other'), isNotNull); // لاعب جديد كليّاً
+    expect(
+      transport.sends.last,
+      equals(('ep-other', Assigned(playerId: 'ep-other', teamId: TeamId.team2))),
+    );
+  });
+
+  test(
+      'a same-identity reconnect race (new join arrives before the old '
+      'disconnect notice) still re-attaches, and the late stale disconnect '
+      'is a no-op (review important #3)', () async {
+    final vm = controller();
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+
+    // إعادة اتصال بنقطة نهاية جديدة، بنفس المعرّف **ونفس الاسم**، **قبل**
+    // ما توصلنا إشعار انقطاع نقطة النهاية القديمة — سباق شبكة شائع (نقطة
+    // النهاية القديمة سكّرت فعلياً بس إشعارها لسا بالطريق).
+    transport.emit(ClientMessageReceived(
+      'ep-a-2',
+      JoinMessage(playerName: 'ep-a', playerId: 'ep-a'),
+    ));
+    await pump();
+
+    expect(vm.state.players.length, equals(2)); // ما انضاف لاعب جديد
+    expect(vm.state.player('ep-a')!.connected, isTrue);
+
+    // إشعار الانقطاع المتأخر لنقطة النهاية القديمة وصل أخيراً — ما لازم
+    // يطرد اللاعب اللي رجع أصلاً بنقطة نهاية جديدة.
+    transport.emit(ClientDisconnected('ep-a'));
+    await pump();
+    expect(vm.state.player('ep-a')!.connected, isTrue);
+
+    // نقطة النهاية القديمة ماتت فعلياً — بزّة منها بتتجاهل.
+    buzz(transport, 'ep-a');
+    await pump();
+    expect(vm.state.buzzedPlayerId, isNull);
+
+    buzz(transport, 'ep-a-2');
+    await pump();
+    expect(vm.state.buzzedPlayerId, equals('ep-a'));
+  });
+
   test('movePlayer works before the game starts and is blocked after',
       () async {
     final vm = controller();
@@ -482,12 +574,13 @@ void main() {
       'pending, and stops once the game is over', () async {
     final vm = controller(tick: const Duration(milliseconds: 10));
     join(transport, ['ep-a', 'ep-b']);
+    await pump(); // اللاعبين لازم ينضموا قبل ما تبلّش اللعبة.
     vm.startGame();
     buzz(transport, 'ep-a');
     await pump();
     vm.judgeCorrect(0); // -> playOrPass, choiceSecondsLeft = 5
-    await pump();
-
+    // منتأكد فوراً — قبل أي `await` ممكن يخلّي الساعة الحقيقية (١٠ملي)
+    // تلحق تدق قبل ما نلقط القيمة الأصلية.
     expect(vm.state.choiceSecondsLeft, equals(5));
 
     await Future.delayed(const Duration(milliseconds: 55));
@@ -502,11 +595,12 @@ void main() {
   test('endGame stops the clock', () async {
     final vm = controller(tick: const Duration(milliseconds: 10));
     join(transport, ['ep-a', 'ep-b']);
+    await pump();
     vm.startGame();
     buzz(transport, 'ep-a');
     await pump();
     vm.judgeCorrect(0);
-    await pump();
+    expect(vm.state.choiceSecondsLeft, equals(5));
 
     vm.endGame();
     final countAfterEnd = transport.broadcasts.length;
@@ -516,12 +610,14 @@ void main() {
     expect(transport.broadcasts.length, equals(countAfterEnd));
   });
 
-  test('dismissError clears the last error', () async {
+  test('dismissError clears the last error, and a failed startHosting '
+      'resets advertising so it can be retried', () async {
     final failing = _FailingTransport();
     final vm = HostController(server: failing, beacon: beacon, newGame: _newGame);
     await vm.startHosting();
 
     expect(vm.lastError, isNotNull);
+    expect(vm.advertising, isFalse); // review important #4
     vm.dismissError();
     expect(vm.lastError, isNull);
   });

@@ -26,7 +26,7 @@ class FakePlayerTransport implements PlayerTransport {
   final ValueNotifier<TeamId?> teamId = ValueNotifier<TeamId?>(null);
 
   final List<ClientMessage> sent = [];
-  final List<(InternetAddress, int, String, TeamId?)> connectCalls = [];
+  final List<(InternetAddress, int, String, TeamId?, String?)> connectCalls = [];
   int rejoinCalls = 0;
   int disconnectCalls = 0;
   int disposeCalls = 0;
@@ -39,8 +39,9 @@ class FakePlayerTransport implements PlayerTransport {
     required int port,
     required String playerName,
     TeamId? teamId,
+    String? playerId,
   }) async {
-    connectCalls.add((host, port, playerName, teamId));
+    connectCalls.add((host, port, playerName, teamId, playerId));
     if (throwOnConnect) throw Exception('تعذّر الاتصال');
     status.value = ConnectionStatus.connected;
   }
@@ -265,22 +266,65 @@ void main() {
     expect(transport.rejoinCalls, equals(0));
   });
 
-  test('enterCode surfaces a readable error for a malformed code', () async {
-    controller.join('سامر');
-    await controller.enterCode('abc'); // مش ٥ أرقام
+  test('enterCode reports the exact "no wifi" message when the device has '
+      'no local IP', () async {
+    final c = PlayerController(
+      discovery: discovery,
+      client: transport,
+      localIp: () async => null,
+    );
+    c.join('سامر');
 
-    // إما رفض الكود، أو تعذّر معرفة عنوان الجهاز — بالحالتين لازم رسالة.
-    expect(controller.lastError, isNotNull);
+    await c.enterCode('12345');
+
+    expect(c.lastError, equals('افتح الواي فاي أو نقطة الاتصال'));
     expect(transport.connectCalls, isEmpty);
   });
 
-  test('dismissError clears the last error', () async {
-    controller.join('سامر');
-    await controller.enterCode('abc');
-    expect(controller.lastError, isNotNull);
+  test('enterCode reports the exact "bad code" message for a malformed code',
+      () async {
+    final c = PlayerController(
+      discovery: discovery,
+      client: transport,
+      localIp: () async => InternetAddress('192.168.1.7'),
+    );
+    c.join('سامر');
 
-    controller.dismissError();
-    expect(controller.lastError, isNull);
+    await c.enterCode('abc'); // مش ٥ أرقام
+
+    expect(c.lastError, equals('كود الغرفة مش صحيح'));
+    expect(transport.connectCalls, isEmpty);
+  });
+
+  test('enterCode connects using the address decoded from a valid code',
+      () async {
+    final c = PlayerController(
+      discovery: discovery,
+      client: transport,
+      localIp: () async => InternetAddress('192.168.1.7'),
+    );
+    c.join('سامر');
+
+    // decodeRoomCode('00001', 192.168.1.7) => 192.168.0.1 (الثالث=٠، الرابع=١)
+    await c.enterCode('00001');
+
+    expect(c.lastError, isNull);
+    expect(transport.connectCalls, hasLength(1));
+    expect(transport.connectCalls.single.$1, equals(InternetAddress('192.168.0.1')));
+  });
+
+  test('dismissError clears the last error', () async {
+    final c = PlayerController(
+      discovery: discovery,
+      client: transport,
+      localIp: () async => null,
+    );
+    c.join('سامر');
+    await c.enterCode('12345');
+    expect(c.lastError, isNotNull);
+
+    c.dismissError();
+    expect(c.lastError, isNull);
   });
 
   test('dispose detaches listeners and disconnects without throwing',

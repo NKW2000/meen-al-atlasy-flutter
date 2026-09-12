@@ -32,10 +32,15 @@ class PlayerController extends ChangeNotifier {
   /// قابل للاستبدال بالاختبارات.
   final int Function() clock;
 
+  /// مصدر عنوان الجهاز المحلي — `wifiIPv4()` افتراضياً، قابل للاستبدال
+  /// بالاختبارات حتى نقدر نغطّي مسارَي `enterCode` (بند مهم #٥ بالمراجعة).
+  final Future<InternetAddress?> Function() localIp;
+
   PlayerController({
     required this.discovery,
     required this.client,
     this.clock = _defaultClock,
+    this.localIp = wifiIPv4,
   }) {
     _rooms = discovery.rooms.value;
     discovery.rooms.addListener(_onRoomsChanged);
@@ -108,7 +113,7 @@ class PlayerController extends ChangeNotifier {
 
   /// اللاعب كتب كود الغرفة يدوياً — بيتحول لعنوان IP باستعمال عنوانه هو.
   Future<void> enterCode(String code) async {
-    final myIp = await wifiIPv4();
+    final myIp = await localIp();
     if (myIp == null) {
       _lastError = 'افتح الواي فاي أو نقطة الاتصال';
       notifyListeners();

@@ -196,4 +196,68 @@ void main() {
     expect(state.teams[TeamId.team2], isNotNull);
     expect(state.multipliers, hasLength(3));
   });
+
+  group('sync snapshot (review controller ruling, option B)', () {
+    test('warmUp before any write yields the defaults', () async {
+      final r = await repo();
+      await r.warmUp();
+
+      expect(r.current.rounds, equals(GameSettings.defaultRounds));
+      expect(r.roomName, equals(GameSettings.defaultRoomName));
+      expect(r.newGameStateSync().questions, isNotEmpty);
+    });
+
+    test('newGameStateSync reflects the latest save without an intervening '
+        'load()', () async {
+      final r = await repo();
+      await r.warmUp();
+
+      await r.save((await r.load()).copyWith(rounds: 3));
+
+      // ملاحظة: ما منستدعي load() هون — save() بحدّث اللقطة بنفسه.
+      expect(r.current.rounds, equals(3));
+      expect(r.newGameStateSync().questions, hasLength(3));
+    });
+
+    test('newGameStateSync draws from an imported bank after it is saved',
+        () async {
+      final r = await repo();
+      await r.warmUp();
+      await r.importBank(
+        _bankJson([
+          for (var i = 1; i <= 4; i++) ('سؤال $i', [('أ', 10), ('ب', 20)]),
+        ]),
+        'بنك',
+      );
+      await r.save((await r.load()).copyWith(rounds: 2));
+
+      final state = r.newGameStateSync();
+      expect(state.questions, hasLength(2));
+      expect(state.questions.every((q) => q.text.startsWith('سؤال')), isTrue);
+    });
+
+    test('freshQuestionSync returns one unread question from the filtered '
+        'bank, and reflects markQuestionRead once refreshed', () async {
+      final r = await repo();
+      await r.importBank(
+        _bankJson([
+          ('س١', [('أ', 10), ('ب', 20)]),
+          ('س٢', [('ج', 5), ('د', 5)]),
+        ]),
+        'بنك',
+      );
+      await r.warmUp();
+
+      final first = r.freshQuestionSync();
+      expect(first, isNotNull);
+      expect(['س١', 'س٢'], contains(first!.text));
+
+      await r.markQuestionRead(first.id);
+      // بعد ما انقرأ، السؤال التاني بس هو "البديل ما انقرأ" — منكرر
+      // النداء كذا مرة حتى نتأكد إنه ما بيرجّع نفس السؤال المقروء.
+      for (var i = 0; i < 5; i++) {
+        expect(r.freshQuestionSync()!.id, isNot(equals(first.id)));
+      }
+    });
+  });
 }

@@ -2,16 +2,27 @@
 /// [SettingsRepository] لكل شجرة الواجهة، بدل ما كل شاشة تركّب اعتماداتها
 /// من الصفر (Task 6، حكم المتحكمات ٧).
 ///
-/// التركيب الفعلي (بناء `HostServer`/`RoomBeacon`/`PlayerClient`/
-/// `RoomDiscovery` الحقيقية، وتمرير `SettingsRepository.newGameState` كـ
-/// `newGame` لـ[HostController]) بيصير بـ`main.dart` — لسا مش مكتوب (مهمة
-/// لاحقة). السبب: `newGame` لازم تكون دالة **متزامنة** (`GameState
-/// Function()`, نفس توقيع `HostViewModel.kt` الأصلي بالضبط، حكم ٣)، بينما
-/// قراءة الإعدادات والبنك (`SettingsRepository.newGameState()`) غير
-/// متزامنة بـDart (`SharedPreferences`/`dart:io` غير حاجبين هون، بعكس
-/// Kotlin). فالتوصيل الحقيقي لازم يجهّز حالة اللعبة الجديدة مسبقاً (مثلاً
-/// بشاشة "لعبة جديدة") وبعدين يمرّرها لدالة متزامنة بترجع آخر حالة
-/// محضّرة — هاد قرار طبقة الواجهة (Task 7+)، مش هاد الملف.
+/// التركيب الفعلي (`main.dart`، لسا مش مكتوب — مهمة لاحقة) بيصير هيك،
+/// بالترتيب (قرار مراجعة الخيار ب — حلّ فجوة التزامن بين `newGame`
+/// المتزامنة و`SettingsRepository` غير المتزامنة):
+///
+/// ```dart
+/// final settings = SettingsRepository(await SharedPreferences.getInstance(), bankDir);
+/// await settings.warmUp(); // يعبّي اللقطة المتزامنة قبل أي استعمال إلها
+/// final host = HostController(
+///   server: HostServer(),
+///   beacon: RoomBeacon(),
+///   newGame: settings.newGameStateSync,
+///   roomName: () => settings.roomName,
+///   freshQuestion: settings.freshQuestionSync,
+///   onQuestionShown: settings.markQuestionRead,
+/// );
+/// ```
+///
+/// `settings.warmUp()` لازم تنستنى **قبل** بناء [HostController]، وكل
+/// دالة كتابة بـ[SettingsRepository] (`save`/`importBank`/`clearBank`/…)
+/// بتحدّث اللقطة المتزامنة بنفسها من بعدها — فما لازم تعيد نداء `warmUp`
+/// يدوياً بعد كل تغيير إعدادات.
 library;
 
 import 'package:flutter/widgets.dart';

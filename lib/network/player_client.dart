@@ -22,11 +22,17 @@ abstract class PlayerTransport {
   ValueListenable<String?> get playerId;
   ValueListenable<TeamId?> get teamId;
 
+  /// [playerId] معرّف محفوظ من اتصال سابق يبعته المضيف بـ[Assigned] —
+  /// مرّره بس لما هاي *فعلاً* إعادة اتصال لنفس اللاعب ([rejoin]). اتصال
+  /// جديد لغرفة جديدة لازم يترك القيمة الافتراضية (`null`) — معرّفات
+  /// نقاط النهاية بترجع تتكرر بكل مضيف، فمعرّف قديم من لعبة سابقة ممكن
+  /// يصادف يطابق لاعب حيّ تاني باللعبة الجديدة (حكم المراجعة الحرج #٢).
   Future<void> connect({
     required InternetAddress host,
     required int port,
     required String playerName,
     TeamId? teamId,
+    String? playerId,
   });
 
   void send(ClientMessage m);
@@ -68,6 +74,7 @@ class PlayerClient implements PlayerTransport {
     required int port,
     required String playerName,
     TeamId? teamId,
+    String? playerId,
   }) async {
     final previous = _ws;
     _ws = null;
@@ -83,6 +90,10 @@ class PlayerClient implements PlayerTransport {
     _lastPort = port;
     _lastPlayerName = playerName;
     this.teamId.value = teamId;
+    // اتصال جديد (بدون معرّف ممرّر) بيصفّر المعرّف المحفوظ من جلسة سابقة —
+    // وإلا معرّف قديم بيتصادف مع لاعب حيّ تاني بمضيف جديد (حكم مراجعة حرج
+    // #٢). [rejoin] هو الوحيد اللي بيمرّر معرّف فعلي هون.
+    this.playerId.value = playerId;
 
     status.value = ConnectionStatus.connecting;
     final WebSocket ws;
@@ -101,9 +112,7 @@ class PlayerClient implements PlayerTransport {
       onDone: () => _onClosed(ws),
       onError: (_) => _onClosed(ws),
     );
-    // منبعت آخر معرّف عيّنه المضيف (إذا في) حتى يقدر يعيد ربطنا بنفس
-    // اللاعب لو هاي إعادة اتصال (Task 6) — أول انضمام playerId.value لسا null.
-    send(JoinMessage(playerName: playerName, teamId: teamId, playerId: playerId.value));
+    send(JoinMessage(playerName: playerName, teamId: teamId, playerId: playerId));
   }
 
   void _onData(WebSocket ws, dynamic data) {
@@ -144,12 +153,14 @@ class PlayerClient implements PlayerTransport {
     if (host == null || port == null || playerName == null) {
       throw StateError('rejoin() called before a first connect()');
     }
-    // نحافظ على playerId الحالي — الاتصال الجديد ما بيصفّره.
+    // منمرّر playerId المحفوظ صراحةً — هاي فعلاً إعادة اتصال لنفس اللاعب،
+    // مش اتصال جديد لغرفة جديدة (حكم مراجعة حرج #٢).
     await connect(
       host: host,
       port: port,
       playerName: playerName,
       teamId: teamId.value,
+      playerId: playerId.value,
     );
   }
 
