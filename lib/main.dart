@@ -4,11 +4,12 @@
 /// مسمّاة وانتقال موحّد (سحبة + تلاشي).
 ///
 /// وضع العرض (`DEMO=true` بوقت البناء) بيبلّش على معرض شاشات بدل
-/// المقدمة — الشاشة نفسها مهمة لاحقة (Task 12)، هون بس مسار مؤقت.
+/// المقدمة.
 library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,9 @@ import 'app/host_controller.dart';
 import 'app/player_controller.dart';
 import 'app/scope.dart';
 import 'app/settings_repository.dart';
+import 'demo/demo_gallery.dart';
+import 'feedback/game_cues.dart';
+import 'feedback/game_feedback.dart';
 import 'game/models.dart';
 import 'game/settings.dart';
 import 'network/host_server.dart';
@@ -54,10 +58,12 @@ Future<void> main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   // الخلفية بتمتد تحت النتش، والمحتوى بينحط داخل المنطقة الآمنة (كل
   // شاشة بتحط SafeArea لحالها).
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Colors.transparent,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+    ),
+  );
   // كل الاتجاهات الأربعة — نفس `android:screenOrientation="fullUser"`.
   await SystemChrome.setPreferredOrientations(const []);
 
@@ -86,7 +92,8 @@ Future<Widget> bootstrap() async {
     host: host,
     player: player,
     settings: settings,
-    child: const FeudRoot(),
+    // نسخة وحدة من الصوت/الاهتزاز للتطبيق كله — `ProvideGameFeedback`.
+    child: GameFeedbackScope(feedback: GameFeedback(), child: const FeudRoot()),
   );
 }
 
@@ -95,11 +102,7 @@ class FeudRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return feudApp(
-      null,
-      initialRoute: demo ? 'demo' : 'intro',
-      onGenerateRoute: _onGenerateRoute,
-    );
+    return feudApp(null, initialRoute: demo ? 'demo' : 'intro', onGenerateRoute: _onGenerateRoute);
   }
 }
 
@@ -111,15 +114,15 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
   switch (routeSettings.name) {
     case 'intro':
       page = Builder(
-        builder: (context) => IntroScreen(
-          onDone: () => Navigator.of(context).pushReplacementNamed('home'),
-        ),
+        builder: (context) =>
+            IntroScreen(onDone: () => Navigator.of(context).pushReplacementNamed('home')),
       );
 
     case 'demo':
-      // TODO(task 12): معرض الشاشات — هون بس مسار مؤقت حتى تشتغل شبكة
-      // التنقّل وتنبني وضع العرض.
-      page = _placeholder('demo');
+      // معرض الشاشات — نسخة الديمو بتبلّش هون بدل المقدمة.
+      page = Builder(
+        builder: (context) => DemoGallery(settingsRepository: AppScope.of(context).settings),
+      );
 
     case 'home':
       page = Builder(
@@ -185,10 +188,8 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
                 // نفس الغرفة ونفس اللاعبين — بس نقاط وأسئلة جديدة،
                 // واللاعبين بيرجعوا يختاروا فرقهم من اللوبي.
                 unawaited(host.backToLobby());
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  'hostLobby',
-                  (route) => route.settings.name == 'home',
-                );
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('hostLobby', (route) => route.settings.name == 'home');
               },
             ),
           );
@@ -203,11 +204,11 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
 }
 
 Widget _placeholder(String routeName) => Scaffold(
-      backgroundColor: FeudColors.deepNavy,
-      body: Center(
-        child: Text(routeName, style: const TextStyle(color: FeudColors.text)),
-      ),
-    );
+  backgroundColor: FeudColors.deepNavy,
+  body: Center(
+    child: Text(routeName, style: const TextStyle(color: FeudColors.text)),
+  ),
+);
 
 /// جسم كل مسار بـ[Scaffold] بخلفية بنفسجية غامقة بدون حجز مساحة
 /// لأشرطة النظام — نفس `Scaffold(containerColor = deepNavy,
@@ -222,15 +223,17 @@ PageRoute<dynamic> _slideFadeRoute(Widget page, {required RouteSettings settings
     pageBuilder: (context, animation, secondaryAnimation) => body,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       const fadeFraction = 240 / 340;
-      final slideIn = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-          .chain(CurveTween(curve: Curves.fastOutSlowIn))
-          .animate(animation);
+      final slideIn = Tween<Offset>(
+        begin: const Offset(1, 0),
+        end: Offset.zero,
+      ).chain(CurveTween(curve: Curves.fastOutSlowIn)).animate(animation);
       final fadeIn = Tween<double>(begin: 0, end: 1)
           .chain(CurveTween(curve: Interval(0, fadeFraction, curve: Curves.fastOutSlowIn)))
           .animate(animation);
-      final slideOut = Tween<Offset>(begin: Offset.zero, end: const Offset(-0.25, 0))
-          .chain(CurveTween(curve: Curves.fastOutSlowIn))
-          .animate(secondaryAnimation);
+      final slideOut = Tween<Offset>(
+        begin: Offset.zero,
+        end: const Offset(-0.25, 0),
+      ).chain(CurveTween(curve: Curves.fastOutSlowIn)).animate(secondaryAnimation);
       final fadeOut = Tween<double>(begin: 1, end: 0)
           .chain(CurveTween(curve: Interval(0, fadeFraction, curve: Curves.fastOutSlowIn)))
           .animate(secondaryAnimation);
@@ -487,7 +490,6 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
           final live = player.state;
 
           final mark = player.mark();
-          // TODO(task 12): GameCues / CountdownCues / PlayerMarkCues بتنركّب هون.
           final Widget body;
           if (live != null && live.gameOver) {
             body = GameOverScreen(state: live);
@@ -506,34 +508,48 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
             );
           }
 
-          return ErrorSnackbar(
-            message: player.lastError,
-            onShown: player.dismissError,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                body,
-                // نفس افتتاحية الجولة اللي عند المضيف — بتطلع فوق الزر.
-                RoundOpeningOverlay(state: live),
-                if (_showLeft)
-                  ConfirmDialog(
-                    title: player.status == ConnectionStatus.disconnected
-                        ? 'انقطعت عن اللعبة'
-                        : 'تطلع من اللعبة؟',
-                    message: 'بتقدر ترجع لنفس اللعبة، أو تطلع وتبلّش من جديد.',
-                    confirmText: 'ارجع لللعبة',
-                    dismissText: 'اطلع وابدأ من جديد',
-                    confirmColor: FeudColors.lime,
-                    onConfirm: () {
-                      setState(() => _showLeft = false);
-                      unawaited(player.rejoin());
-                    },
-                    onDismiss: () {
-                      setState(() => _showLeft = false);
-                      Navigator.of(context).popUntil((route) => route.settings.name == 'home');
-                    },
+          // الصوت والاهتزاز: أحداث اللعبة، دقّات آخر خمس ثواني، وصوت البزر
+          // بالمواجهة بس — نفس `GameStateCues`/`CountdownCues`/`PlayerMarkCues`.
+          return GameCues(
+            state: live,
+            child: CountdownCues(
+              seconds: live == null ? 0 : math.max(live.answerSecondsLeft, live.choiceSecondsLeft),
+              child: PlayerMarkCues(
+                mark: mark,
+                faceOff:
+                    live?.phase == RoundPhase.faceOff || live?.phase == RoundPhase.faceOffSecond,
+                child: ErrorSnackbar(
+                  message: player.lastError,
+                  onShown: player.dismissError,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      body,
+                      // نفس افتتاحية الجولة اللي عند المضيف — بتطلع فوق الزر.
+                      RoundOpeningOverlay(state: live),
+                      if (_showLeft)
+                        ConfirmDialog(
+                          title: player.status == ConnectionStatus.disconnected
+                              ? 'انقطعت عن اللعبة'
+                              : 'تطلع من اللعبة؟',
+                          message: 'بتقدر ترجع لنفس اللعبة، أو تطلع وتبلّش من جديد.',
+                          confirmText: 'ارجع لللعبة',
+                          dismissText: 'اطلع وابدأ من جديد',
+                          confirmColor: FeudColors.lime,
+                          onConfirm: () {
+                            setState(() => _showLeft = false);
+                            unawaited(player.rejoin());
+                          },
+                          onDismiss: () {
+                            setState(() => _showLeft = false);
+                            Navigator.of(context)
+                                .popUntil((route) => route.settings.name == 'home');
+                          },
+                        ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
           );
         },
@@ -594,7 +610,6 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
         listenable: host,
         builder: (context, _) {
           final state = host.state;
-          // TODO(task 12): GameCues / CountdownCues بتنركّب هون.
           final Widget body = state.phase == RoundPhase.scoreboard
               ? ScoreboardScreen(state: state, onContinue: host.nextRound)
               : HostGameBoardScreen(
@@ -605,29 +620,36 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
                   onChangeQuestion: host.changeQuestion,
                 );
 
-          return ErrorSnackbar(
-            message: host.lastError,
-            onShown: host.dismissError,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                body,
-                // افتتاحية كل جولة: اسم الجولة والمضاعف، وبعدها «استعدوا»
-                // بأسماء اللي عالمنصة — نفسها عند اللاعبين.
-                RoundOpeningOverlay(state: state),
-                if (_confirmExit)
-                  ConfirmDialog(
-                    title: 'تطلع من اللعبة؟',
-                    message: 'اللعبة شغّالة — إذا طلعت بتنتهي عند كل اللاعبين.',
-                    confirmText: 'اطلع',
-                    dismissText: 'كمّل اللعب',
-                    onConfirm: () {
-                      setState(() => _confirmExit = false);
-                      Navigator.of(context).popUntil((route) => route.settings.name == 'home');
-                    },
-                    onDismiss: () => setState(() => _confirmExit = false),
-                  ),
-              ],
+          // الصوت والاهتزاز عند المضيف: أحداث اللعبة ودقّات آخر خمس ثواني.
+          return GameCues(
+            state: state,
+            child: CountdownCues(
+              seconds: math.max(state.answerSecondsLeft, state.choiceSecondsLeft),
+              child: ErrorSnackbar(
+                message: host.lastError,
+                onShown: host.dismissError,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    body,
+                    // افتتاحية كل جولة: اسم الجولة والمضاعف، وبعدها «استعدوا»
+                    // بأسماء اللي عالمنصة — نفسها عند اللاعبين.
+                    RoundOpeningOverlay(state: state),
+                    if (_confirmExit)
+                      ConfirmDialog(
+                        title: 'تطلع من اللعبة؟',
+                        message: 'اللعبة شغّالة — إذا طلعت بتنتهي عند كل اللاعبين.',
+                        confirmText: 'اطلع',
+                        dismissText: 'كمّل اللعب',
+                        onConfirm: () {
+                          setState(() => _confirmExit = false);
+                          Navigator.of(context).popUntil((route) => route.settings.name == 'home');
+                        },
+                        onDismiss: () => setState(() => _confirmExit = false),
+                      ),
+                  ],
+                ),
+              ),
             ),
           );
         },
