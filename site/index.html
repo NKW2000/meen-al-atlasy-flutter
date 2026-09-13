@@ -42,8 +42,13 @@
 
   /* إطار موبايل حوالين لقطة حقيقية من التطبيق — نفس إطار المكوك بالتصميم. */
   .phone { position: relative; aspect-ratio: 360 / 780; background: #241046; border: 5px solid #140626; border-radius: 28px; box-shadow: -8px 9px 0 #140626; box-sizing: border-box; overflow: hidden; }
-  .phone img { display: block; width: 100%; height: 100%; object-fit: cover; transition: opacity .28s ease; }
-  .phone img.swap { opacity: 0; }
+  .phone img { display: block; width: 100%; height: 100%; object-fit: cover; transition: opacity .5s ease; }
+  /* التطبيق نفسه (Flutter Web) بيشتغل جوّا الإطار: بينرسم بقياس موبايل
+     ٣٦٠×٧٨٠ وبيتصغّر ليملّي الإطار — فبيطلع بالضبط زي ما هو عالجهاز. اللقطة
+     الثابتة بتضل تحته لحد ما يرسم أول فريم. */
+  .phone iframe { position: absolute; top: 0; left: 0; width: 360px; height: 780px; border: 0; transform-origin: 0 0; background: #170A31; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+  .phone.live iframe { opacity: 1; }
+  .phone.live img { opacity: 0; }
 
   /* الرأس على الموبايل: العلامة بتصغر ووصلات النص بتختفي، بيضل زر التحميل. */
   .brand { font-size: clamp(22px, 6vw, 30px); }
@@ -103,7 +108,7 @@
     <div style="flex: 0 1 340px; min-width: 260px; display: flex; justify-content: center; position: relative">
       <div style="position: absolute; inset: 8% -6% 12% -6%; background: #3A1C6E; border-radius: 40px; transform: rotate(-4deg)"></div>
       <!-- لقطة حقيقية من التطبيق: لوح المضيف بمرحلة اللعب (شاشة ٧ بالديمو). -->
-      <div class="phone" data-anim="07,09,11" style="width: 300px; max-width: 100%; border-radius: 34px; box-shadow: -10px 12px 0 #140626; animation: omPop .8s .1s cubic-bezier(.2,.9,.3,1.25) both">
+      <div class="phone" data-app="all" style="width: 300px; max-width: 100%; border-radius: 34px; box-shadow: -10px 12px 0 #140626; animation: omPop .8s .1s cubic-bezier(.2,.9,.3,1.25) both">
         <img src="screens/07-host-board-portrait.png" alt="لوح المضيف: السؤال فوق، ثمان خانات أجوبة، وتحت زر الغلط ودور اللاعب" width="1080" height="2340">
       </div>
     </div>
@@ -168,21 +173,21 @@
       <div style="display: flex; flex-wrap: wrap; gap: 22px; margin-top: 34px; align-items: flex-start">
 
         <div data-reveal style="flex: 1 1 230px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: 12px">
-          <div class="phone" data-anim="07">
+          <div class="phone" data-app="07">
             <img src="screens/07-host-board-portrait.png" alt="لوح المضيف بمرحلة اللعب" width="1080" height="2340" loading="lazy">
           </div>
           <div style="font: 700 14px 'Tajawal'; color: #C9B6EE">لوح المضيف — السؤال والأجوبة</div>
         </div>
 
         <div data-reveal style="--d: .12s; flex: 1 1 230px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: 12px">
-          <div class="phone" data-anim="09">
+          <div class="phone" data-app="09">
             <img src="screens/09-round-intro-portrait.png" alt="بداية الجولة: اسم الجولة والمضاعف" width="1080" height="2340" loading="lazy">
           </div>
           <div style="font: 700 14px 'Tajawal'; color: #C9B6EE">بداية الجولة</div>
         </div>
 
         <div data-reveal style="--d: .24s; flex: 1 1 230px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: 12px">
-          <div class="phone" data-anim="11">
+          <div class="phone" data-app="11">
             <img src="screens/11-scoreboard-portrait.png" alt="النتيجة بين الجولات: لوح لكل فريق ولافتة المتقدّم" width="1080" height="2340" loading="lazy">
           </div>
           <div style="font: 700 14px 'Tajawal'; color: #C9B6EE">النتيجة بين الجولات</div>
@@ -238,70 +243,41 @@
     revealed.forEach(function (el) { io.observe(el); });
   }
 
-  // ---- الواجهات الحيّة: فريمات ملقوطة من التطبيق نفسه (اختبار
-  // test/site/screenshots_test.dart) بتنعرض بالتسلسل جوّا الإطار.
-  var SEQ = {
-    '07': { frames: 13, fps: 12, hold: 1600 }, // خانة بتنكشف على لوح المضيف
-    '09': { frames: 18, fps: 8,  hold: 1400 }, // افتتاحية الجولة
-    '11': { frames: 20, fps: 8,  hold: 1800 }  // النتيجة بين الجولات
-  };
-  function src(id, i) { return 'screens/anim/' + id + '/' + (i < 10 ? '0' + i : i) + '.png'; }
-  function preload(id) {
-    var s = SEQ[id];
-    if (s.ready) return s.ready;
-    s.ready = Promise.all(Array.from({ length: s.frames }, function (_, i) {
-      return new Promise(function (res) { var im = new Image(); im.onload = im.onerror = function () { res(im); }; im.src = src(id, i); });
-    }));
-    return s.ready;
+  // ---- الواجهات الحيّة: التطبيق نفسه مبني للويب (site/app/، من
+  // lib/site_showcase.dart) بيشتغل جوّا كل إطار بحركاته الأصلية على ٦٠ فريم/ث.
+  // بينحمّل لما يوصل الإطار قريب من الشاشة، وبيتصغّر من ٣٦٠×٧٨٠ ليملّي الإطار
+  // حتى يطلع بالضبط زي ما هو عالموبايل.
+  var phones = document.querySelectorAll('.phone[data-app]');
+
+  function fit(phone) {
+    var frame = phone.querySelector('iframe');
+    if (!frame) return;
+    var inner = phone.clientWidth; // بدون الحدّ (clientWidth بيستثني border)
+    frame.style.transform = 'scale(' + (inner / 360) + ')';
   }
 
-  function play(phone) {
-    var ids = phone.getAttribute('data-anim').split(',');
-    var img = phone.querySelector('img');
-    var cursor = 0, stopped = false;
-
-    function runSequence(id, isFirst) {
-      var s = SEQ[id];
-      return preload(id).then(function () {
-        if (stopped) return;
-        return new Promise(function (done) {
-          var i = 0;
-          function begin() {
-            img.src = src(id, 0);
-            img.classList.remove('swap');
-            var t = setInterval(function () {
-              if (stopped) { clearInterval(t); return done(); }
-              i++;
-              if (i >= s.frames) { clearInterval(t); setTimeout(done, s.hold); return; }
-              img.src = src(id, i);
-            }, 1000 / s.fps);
-          }
-          if (isFirst) begin();
-          else { img.classList.add('swap'); setTimeout(begin, 300); } // تلاشي قصير بين مشهدين
-        });
-      });
-    }
-
-    function loop(first) {
-      var id = ids[cursor % ids.length];
-      cursor++;
-      runSequence(id, first).then(function () { if (!stopped) loop(ids.length === 1 ? true : false); });
-    }
-    loop(true);
-    return function () { stopped = true; };
+  function mount(phone) {
+    if (phone.querySelector('iframe')) return;
+    var frame = document.createElement('iframe');
+    frame.title = 'واجهة التطبيق';
+    frame.setAttribute('tabindex', '-1');
+    frame.src = 'app/index.html?screen=' + phone.getAttribute('data-app');
+    frame.addEventListener('load', function () {
+      // فلاتر بترسم أول فريم بعد ما تحمّل محرّكها — منستنى شوي قبل ما نخبّي اللقطة.
+      setTimeout(function () { phone.classList.add('live'); }, 900);
+    });
+    phone.appendChild(frame);
+    fit(phone);
   }
 
-  var phones = document.querySelectorAll('.phone[data-anim]');
   if (!reduce && 'IntersectionObserver' in window) {
-    var running = new Map();
     var pio = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
-        var el = e.target;
-        if (e.isIntersecting && !running.has(el)) running.set(el, play(el));
-        else if (!e.isIntersecting && running.has(el)) { running.get(el)(); running.delete(el); }
+        if (e.isIntersecting) { mount(e.target); pio.unobserve(e.target); }
       });
-    }, { rootMargin: '120px 0px' });
+    }, { rootMargin: '200px 0px' });
     phones.forEach(function (el) { pio.observe(el); });
+    window.addEventListener('resize', function () { phones.forEach(fit); });
   }
 })();
 </script>

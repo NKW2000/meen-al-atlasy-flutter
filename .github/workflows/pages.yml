@@ -1,14 +1,21 @@
 name: Website
 
 # موقع اللعبة (site/) على GitHub Pages — بينشر مع كل دفعة على main بتغيّر
-# الموقع. أول مرة بيفعّل Pages لحاله (enablement) — إذا فشل، فعّله من
-# Settings → Pages → Source: GitHub Actions.
+# الموقع أو الشاشات اللي بتشتغل فيه. أول مرة بيفعّل Pages لحاله
+# (enablement) — إذا فشل، فعّله من Settings → Pages → Source: GitHub Actions.
+#
+# الواجهات الحيّة بالموقع هي التطبيق نفسه مبني للويب (lib/site_showcase.dart)
+# — بينبني هون وبينحط تحت site/app/ (مش محفوظ بالمستودع).
 on:
   push:
     branches:
       - main
     paths:
       - "site/**"
+      - "lib/**"
+      - "assets/**"
+      - "web/**"
+      - "pubspec.yaml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -29,6 +36,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.4"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # مسار Pages للمستودع: https://<user>.github.io/<repo>/ → base-href /<repo>/app/
+      - name: Build the showcase for the web
+        run: flutter build web -t lib/site_showcase.dart --base-href "/${GITHUB_REPOSITORY#*/}/app/" -o site/app
       - uses: actions/configure-pages@v5
         with:
           enablement: true
