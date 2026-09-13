@@ -19,6 +19,7 @@ import 'app/host_controller.dart';
 import 'app/player_controller.dart';
 import 'app/scope.dart';
 import 'app/settings_repository.dart';
+import 'game/models.dart';
 import 'game/settings.dart';
 import 'network/host_server.dart';
 import 'network/local_ip.dart';
@@ -28,13 +29,15 @@ import 'network/room_discovery.dart';
 import 'ui/components/confirm_dialog.dart';
 import 'ui/components/error_snackbar.dart';
 import 'ui/home/home_screen.dart';
+import 'ui/host/host_board_screen.dart';
 import 'ui/host/host_lobby_screen.dart';
 import 'ui/host/host_settings_screen.dart';
 import 'ui/intro/intro_screen.dart';
 import 'ui/player/player_join_screen.dart';
-import 'ui/player/player_lobby.dart';
+import 'ui/player/player_screen.dart';
 import 'ui/player/room_list_screen.dart';
 import 'ui/settings/bank_settings_screen.dart';
+import 'ui/show/round_opening.dart';
 import 'ui/theme.dart';
 
 /// وضع العرض — نفس فكرة `BuildConfig.DEBUG`/فليفر `demo` بالكوتلن، هون
@@ -163,12 +166,13 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
     case 'playerBuzzer':
       page = const _PlayerBuzzerRoute();
 
-    // الشاشات الجاية بمهام لاحقة — مسار مؤقت حتى تشتغل شبكة التنقّل
-    // وتنعمل تجربة دخان (smoke test) عليها.
     case 'hostBoard':
-      page = _placeholder('hostBoard'); // TODO(task 10)
+      page = const _HostBoardRoute();
+
+    // شاشة النتيجة النهائية بمهمة لاحقة — مسار مؤقت حتى تشتغل شبكة
+    // التنقّل وتنعمل تجربة دخان (smoke test) عليها.
     case 'hostResult':
-      page = _placeholder('hostResult'); // TODO(task 10)
+      page = _placeholder('hostResult'); // TODO(task 11)
 
     default:
       page = _placeholder(routeSettings.name ?? '?');
@@ -460,20 +464,25 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
         listenable: player,
         builder: (context, _) {
           final live = player.state;
-          final connected = player.status == ConnectionStatus.connected;
 
+          final mark = player.mark();
+          // TODO(task 12): GameCues / CountdownCues / PlayerMarkCues بتنركّب هون.
           final Widget body;
-          if (connected && live != null && !live.matchStarted && !live.gameOver) {
-            // قبل ما يبلّش المضيف (وكمان بعد ما يرجّع اللوبي): اللاعب
-            // بيشوف رقمه وفريقه وبيقدر يبدّل.
-            body = PlayerLobbyScreen(
+          if (live != null && live.gameOver) {
+            body = _placeholder('gameOver'); // TODO(task 11): GameOverScreen
+          } else if (live != null && live.phase == RoundPhase.scoreboard) {
+            body = _placeholder('scoreboard'); // TODO(task 11): ScoreboardScreen
+          } else {
+            body = PlayerScreen(
               state: live,
               playerId: player.playerId,
               teamId: player.teamId,
+              mark: mark,
+              status: player.status,
+              onBuzz: player.onBuzzTapped,
+              onChoose: player.choose,
               onChangeTeam: player.changeTeam,
             );
-          } else {
-            body = _placeholder('playerBuzzer'); // TODO(task 10): PlayerScreen
           }
 
           return ErrorSnackbar(
@@ -483,6 +492,8 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
               fit: StackFit.expand,
               children: [
                 body,
+                // نفس افتتاحية الجولة اللي عند المضيف — بتطلع فوق الزر.
+                RoundOpeningOverlay(state: live),
                 if (_showLeft)
                   ConfirmDialog(
                     title: player.status == ConnectionStatus.disconnected
@@ -500,6 +511,100 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
                       setState(() => _showLeft = false);
                       Navigator.of(context).popUntil((route) => route.settings.name == 'home');
                     },
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// غلاف مسار لوح المضيف — نفس `HOST_BOARD` بـ`FeudNavGraph.kt`: اللوح
+/// (أو لوحة النتيجة بين الجولات)، افتتاحية كل جولة فوقه، حوار «تطلع من
+/// اللعبة؟» بالرجوع، والانتقال لشاشة النتيجة النهائية لما تخلص اللعبة.
+class _HostBoardRoute extends StatefulWidget {
+  const _HostBoardRoute();
+
+  @override
+  State<_HostBoardRoute> createState() => _HostBoardRouteState();
+}
+
+class _HostBoardRouteState extends State<_HostBoardRoute> {
+  HostController? _host;
+  bool _confirmExit = false;
+  bool _navigatedToResult = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final host = AppScope.of(context).host;
+    if (identical(host, _host)) return;
+    _host?.removeListener(_onHostChanged);
+    _host = host..addListener(_onHostChanged);
+    _onHostChanged();
+  }
+
+  /// `LaunchedEffect(state.gameOver)` — للنتيجة النهائية مرة وحدة.
+  void _onHostChanged() {
+    if (_navigatedToResult || !_host!.state.gameOver) return;
+    _navigatedToResult = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pushReplacementNamed('hostResult');
+    });
+  }
+
+  @override
+  void dispose() {
+    _host?.removeListener(_onHostChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final host = AppScope.of(context).host;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_confirmExit) setState(() => _confirmExit = true);
+      },
+      child: ListenableBuilder(
+        listenable: host,
+        builder: (context, _) {
+          final state = host.state;
+          // TODO(task 12): GameCues / CountdownCues بتنركّب هون.
+          final Widget body = state.phase == RoundPhase.scoreboard
+              ? _placeholder('scoreboard') // TODO(task 11): ScoreboardScreen
+              : HostGameBoardScreen(
+                  state: state,
+                  onCorrect: host.judgeCorrect,
+                  onWrong: host.judgeWrong,
+                  onNextRound: host.nextRound,
+                  onChangeQuestion: host.changeQuestion,
+                );
+
+          return ErrorSnackbar(
+            message: host.lastError,
+            onShown: host.dismissError,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                body,
+                // افتتاحية كل جولة: اسم الجولة والمضاعف، وبعدها «استعدوا»
+                // بأسماء اللي عالمنصة — نفسها عند اللاعبين.
+                RoundOpeningOverlay(state: state),
+                if (_confirmExit)
+                  ConfirmDialog(
+                    title: 'تطلع من اللعبة؟',
+                    message: 'اللعبة شغّالة — إذا طلعت بتنتهي عند كل اللاعبين.',
+                    confirmText: 'اطلع',
+                    dismissText: 'كمّل اللعب',
+                    onConfirm: () {
+                      setState(() => _confirmExit = false);
+                      Navigator.of(context).popUntil((route) => route.settings.name == 'home');
+                    },
+                    onDismiss: () => setState(() => _confirmExit = false),
                   ),
               ],
             ),
