@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import '../../game/models.dart';
 import '../arabic_numerals.dart';
 import '../components/answer_slot.dart';
+import '../components/seat_badge.dart';
 import '../components/stage.dart';
 import '../components/strikes.dart';
 import '../motion/show_motion.dart';
@@ -40,6 +41,18 @@ extension HostBoardState on GameState {
   bool boardFullyRevealed() => currentQuestion?.answers.every((a) => a.revealed) ?? true;
 
   String nextButtonLabel() => isLastRound ? 'إنهاء اللعبة' : 'الجولة الجاية';
+
+  /// اللاعب اللي عليه الدور هلق — لاعب الدور باللعب، اللي ضغط بالمواجهة،
+  /// أو لاعب المنصة تبع الخصم بالمواجهة التانية. `null` لما ما في حدا محدّد
+  /// (المواجهة قبل الضغطة، قرار العب/تمرير، بين الجولات).
+  Player? whoseTurn() {
+    final byId = player(turnPlayerId ?? buzzedPlayerId);
+    if (byId != null) return byId;
+    if (phase == RoundPhase.faceOffSecond && faceOffTeam != null) {
+      return podiumPlayer(faceOffTeam!);
+    }
+    return null;
+  }
 
   /// تبديل السؤال مسموح قبل ما تبلّش الجولة فعلياً — يعني بالمواجهة وبدون كشف.
   bool canChangeQuestion() =>
@@ -151,6 +164,9 @@ class HostGameBoardScreen extends StatelessWidget {
                     onCorrect: onCorrect,
                   ),
                 ),
+                const SizedBox(height: 10),
+                // مين عليه الدور هلق — المضيف بدّه يعرف على مين بيحكم.
+                HostTurnChip(state: state),
                 const SizedBox(height: 10),
                 judgeBar,
               ],
@@ -384,6 +400,62 @@ class FlatButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// بلوك الدور عند المضيف: رقم واسم اللاعب اللي عليه الدور وفريقه — أو
+/// «المواجهة: فلان ضد فلان» قبل ما يضغط حدا. نفس منطق بلوك اللاعب.
+class HostTurnChip extends StatelessWidget {
+  final GameState state;
+
+  const HostTurnChip({super.key, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final current = state.whoseTurn();
+    final team = current?.teamId ?? state.activeTeam;
+    final color = team?.color() ?? FeudColors.panelDark;
+    final ink = team == null ? FeudColors.textMuted : team.inkColor();
+
+    final String label;
+    if (current != null) {
+      label = 'دور ${current.name} — ${state.teams[current.teamId]?.name ?? ''}';
+    } else {
+      final a = state.podiumPlayer(TeamId.team1)?.name;
+      final b = state.podiumPlayer(TeamId.team2)?.name;
+      label = switch (state.phase) {
+        RoundPhase.faceOff when a != null && b != null => 'المواجهة: $a ضد $b — أول ضغطة بتجاوب',
+        RoundPhase.faceOff => 'المواجهة — أول ضغطة بتجاوب',
+        RoundPhase.playOrPass => '${state.teams[state.faceOffWinner]?.name ?? ''} عم يقرر: يلعب أو يمرّر',
+        RoundPhase.roundEnd => 'انتهت الجولة — اكشف الباقي',
+        _ => '—',
+      };
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(FeudShape.block),
+        border: Border.all(color: FeudColors.ink, width: 3),
+      ),
+      child: Row(
+        children: [
+          if (current != null) ...[
+            SeatBadge(seat: current.seat, dim: !current.connected, size: 28),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: FeudText.titleMedium(context).copyWith(color: ink),
+            ),
+          ),
+        ],
       ),
     );
   }

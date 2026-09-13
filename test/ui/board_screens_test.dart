@@ -34,6 +34,7 @@ GameState _revealAll(GameState s) => s.copyWith(
     );
 
 void main() {
+  hostTurnChipTests();
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('HostGameBoardScreen', () {
@@ -279,5 +280,35 @@ void main() {
       await _pump(tester, RoundOpeningOverlay(state: opening.copyWith(phase: RoundPhase.play)));
       expect(find.text('الجولة'), findsNothing);
     });
+  });
+}
+
+// ---- بلوك الدور عند المضيف.
+void hostTurnChipTests() {
+  final base = freshState().copyWith(matchStarted: true);
+
+  Widget board(GameState s) =>
+      HostGameBoardScreen(state: s, onCorrect: (_) {}, onWrong: () {}, onNextRound: () {});
+
+  testWidgets('the host sees who is answering in every phase', (tester) async {
+    final a1 = base.podiumPlayer(TeamId.team1)!;
+    final b1 = base.podiumPlayer(TeamId.team2)!;
+
+    await _pump(tester, board(base.copyWith(phase: RoundPhase.faceOff, buzzState: BuzzState.open)));
+    expect(find.text('المواجهة: ${a1.name} ضد ${b1.name} — أول ضغطة بتجاوب'), findsOneWidget);
+
+    await _pump(tester, board(base.copyWith(phase: RoundPhase.faceOff, buzzedPlayerId: a1.id,
+        faceOffTeam: TeamId.team1, buzzState: BuzzState.lockedTeam1)));
+    expect(find.text('دور ${a1.name} — ${base.teams[TeamId.team1]!.name}'), findsOneWidget);
+
+    // الأول غلط ← الدور للخصم.
+    await _pump(tester, board(base.copyWith(phase: RoundPhase.faceOffSecond,
+        faceOffTeam: TeamId.team2, buzzState: BuzzState.closed, wrongPlayers: {a1.id})));
+    expect(find.text('دور ${b1.name} — ${base.teams[TeamId.team2]!.name}'), findsOneWidget);
+
+    await _pump(tester, board(base.copyWith(phase: RoundPhase.play, controllingTeam: TeamId.team1,
+        turnPlayerId: 'a2', buzzState: BuzzState.closed)));
+    expect(find.text('دور ${base.player('a2')!.name} — ${base.teams[TeamId.team1]!.name}'),
+        findsOneWidget);
   });
 }

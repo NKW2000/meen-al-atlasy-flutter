@@ -107,7 +107,7 @@ class TurnBlock extends StatelessWidget {
     // مين عليه الدور فعلاً: لاعب الدور باللعب، اللي ضغط بالمواجهة، أو لاعب
     // المنصة تبع الخصم بالمواجهة التانية. بدون رجوع لصاحب الجهاز — هيك
     // كان الكل بيشوف «دورك» بعد ما يغلط الأول.
-    final current = _currentPlayer(state);
+    final current = state?.whoseTurn();
     final team = current?.teamId ?? teamId;
     final color = team?.color() ?? FeudColors.gold;
     final ink = team?.inkColor() ?? FeudColors.ink;
@@ -148,18 +148,6 @@ class TurnBlock extends StatelessWidget {
       ),
     );
   }
-}
-
-/// اللاعب اللي عليه الدور هلق — أو `null` لما ما في حدا محدّد (المواجهة
-/// قبل الضغطة، قرار العب/تمرير، بين الجولات).
-Player? _currentPlayer(GameState? state) {
-  if (state == null) return null;
-  final byId = state.player(state.turnPlayerId ?? state.buzzedPlayerId);
-  if (byId != null) return byId;
-  if (state.phase == RoundPhase.faceOffSecond && state.faceOffTeam != null) {
-    return state.podiumPlayer(state.faceOffTeam!);
-  }
-  return null;
 }
 
 /// سطر البلوك لما ما في لاعب عالدور.
