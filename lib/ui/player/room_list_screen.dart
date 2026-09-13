@@ -1,0 +1,382 @@
+/// لستة الغرف: كل مضيف قريب بيبيّن باسم غرفته، واللاعب بيدوس على وحدة
+/// ليفوت فيها. منضل ندوّر وقت اللستة مفتوحة، فالغرف بتزيد وبتنقص لحالها.
+///
+/// منفّذ عن `RoomListScreen.kt` بالمشروع الأصلي (Kotlin). الإضافة الوحيدة
+/// (مواصفة الواي فاي §3): تحت اللستة خانة «أو اكتب كود الغرفة» للحالة
+/// اللي الشبكة فيها بتمنع البثّ (بعض نقاط الاتصال)، وسطر الشبكة.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../network/room_discovery.dart';
+import '../arabic_numerals.dart';
+import '../components/brand_logo.dart';
+import '../components/buttons.dart';
+import '../components/stage.dart';
+import '../host/host_lobby_screen.dart' show sameNetworkHint;
+import '../responsive.dart';
+import '../theme.dart';
+
+class RoomListScreen extends StatelessWidget {
+  final String playerName;
+  final List<Room> rooms;
+  final void Function(Room room) onPick;
+  final void Function(String code) onEnterCode;
+  final VoidCallback onBack;
+
+  const RoomListScreen({
+    super.key,
+    required this.playerName,
+    required this.rooms,
+    required this.onPick,
+    required this.onEnterCode,
+    required this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isPortrait(context)) return _portrait(context);
+
+    return StageBackground(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const BrandBadge(em: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'أي غرفة؟',
+                        style: FeudText.headlineSmall(context).copyWith(color: FeudColors.gold),
+                      ),
+                      Text(
+                        'أهلاً $playerName — اختار الغرفة اللي بدك تفوت فيها',
+                        style: FeudText.bodyMedium(context).copyWith(color: FeudColors.textMuted),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Pill(
+                  text: rooms.isEmpty ? 'عم ندوّر...' : '${rooms.length.ar()} غرفة قريبة',
+                  color: rooms.isEmpty ? FeudColors.stageAlt : FeudColors.lime,
+                  textColor: rooms.isEmpty ? FeudColors.textMuted : FeudColors.ink,
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 140,
+                  child: SecondaryButton(text: 'رجوع', onClick: onBack, accent: FeudColors.teal),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const GoldDivider(),
+            const SizedBox(height: 10),
+            Expanded(
+              child: rooms.isEmpty
+                  ? const _SearchingState()
+                  : GridView.builder(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        mainAxisExtent: 72,
+                      ),
+                      itemCount: rooms.length,
+                      itemBuilder: (context, i) => _RoomRow(
+                        key: ValueKey(rooms[i].endpointId),
+                        room: rooms[i],
+                        onClick: () => onPick(rooms[i]),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 8),
+            _CodeEntry(onEnterCode: onEnterCode),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// لستة الغرف بالوضع الطولي — نفس كرت التصميم.
+  Widget _portrait(BuildContext context) {
+    return StageBackground(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'أي غرفة؟',
+                        style: FeudText.titleLarge(context).copyWith(color: FeudColors.gold),
+                      ),
+                      Text(
+                        'أهلاً $playerName — اختار الغرفة اللي بدك تفوت فيها',
+                        style: FeudText.labelMedium(context).copyWith(color: FeudColors.textMuted),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Pill(
+                  text: rooms.isEmpty ? 'عم ندوّر' : '${rooms.length.ar()} غرف',
+                  color: rooms.isEmpty ? FeudColors.stageAlt : FeudColors.lime,
+                  textColor: rooms.isEmpty ? FeudColors.textMuted : FeudColors.ink,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const GoldDivider(),
+            const SizedBox(height: 12),
+            Expanded(
+              child: rooms.isEmpty
+                  ? const _SearchingState()
+                  : ListView.separated(
+                      itemCount: rooms.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) => _RoomRow(
+                        key: ValueKey(rooms[i].endpointId),
+                        room: rooms[i],
+                        onClick: () => onPick(rooms[i]),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 12),
+            _CodeEntry(onEnterCode: onEnterCode),
+            const SizedBox(height: 12),
+            PrimaryButton(text: 'رجوع', onClick: onBack, color: FeudColors.teal),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoomRow extends StatelessWidget {
+  final Room room;
+  final VoidCallback onClick;
+
+  const _RoomRow({super.key, required this.room, required this.onClick});
+
+  @override
+  Widget build(BuildContext context) {
+    return CartoonSurface(
+      color: FeudColors.stageAlt,
+      borderWidth: 3,
+      corner: FeudShape.block,
+      shadow: 5,
+      onClick: onClick,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            const BrandBadge(em: 30),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    room.name,
+                    style: FeudText.titleMedium(context).copyWith(color: FeudColors.text),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'غرفة قريبة · جاهزة',
+                    style: FeudText.labelMedium(context).copyWith(color: FeudColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            const Pill(text: 'فوت', color: FeudColors.lime),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// خانة كود الغرفة: أرقام بس، خمس خانات، وزر «انضم» — للحالة اللي
+/// البثّ فيها ما بيوصل (بعض نقاط الاتصال بتمنع البثّ بين الأجهزة).
+class _CodeEntry extends StatefulWidget {
+  final void Function(String code) onEnterCode;
+
+  const _CodeEntry({required this.onEnterCode});
+
+  @override
+  State<_CodeEntry> createState() => _CodeEntryState();
+}
+
+class _CodeEntryState extends State<_CodeEntry> {
+  final _controller = TextEditingController();
+
+  bool get _ready => _controller.text.length == 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_ready) widget.onEnterCode(_controller.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: BlockSkin(
+                color: FeudColors.cream,
+                border: 3,
+                shadow: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  // TextField بدها Material فوقها — الشاشة بتوفّره لحالها.
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: TextField(
+                      controller: _controller,
+                      maxLength: 5,
+                      maxLines: 1,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _submit(),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: FeudText.titleLarge(context).copyWith(color: FeudColors.ink),
+                      cursorColor: FeudColors.ink,
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        counterText: '',
+                        hintText: 'أو اكتب كود الغرفة',
+                        hintStyle: FeudText.titleMedium(context)
+                            .copyWith(color: FeudColors.ink.withValues(alpha: 0.35)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 120,
+              child: PrimaryButton(
+                text: 'انضم',
+                onClick: _submit,
+                enabled: _ready,
+                color: FeudColors.lime,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          sameNetworkHint,
+          style: FeudText.labelMedium(context).copyWith(color: FeudColors.textMuted),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+/// حالة البحث: نقط بتنبض وسطر بيقول شو لازم يصير.
+class _SearchingState extends StatefulWidget {
+  const _SearchingState();
+
+  @override
+  State<_SearchingState> createState() => _SearchingStateState();
+}
+
+class _SearchingStateState extends State<_SearchingState> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 760))
+      ..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.85, end: 1.15).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const colors = [FeudColors.gold, FeudColors.teal, FeudColors.pink];
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _scale,
+            builder: (context, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (index, color) in colors.indexed) ...[
+                  if (index > 0) const SizedBox(width: 10),
+                  Transform.scale(
+                    scale: index.isEven ? _scale.value : 2 - _scale.value,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'عم ندوّر على غرف قريبة',
+            style: FeudText.titleMedium(context).copyWith(color: FeudColors.text),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'خلّي المضيف يفتح اللعبة ويضغط «بدء البث»، أو اكتب كود الغرفة '
+            'اللي بيبيّن عنده',
+            textAlign: TextAlign.center,
+            style: FeudText.bodyMedium(context).copyWith(color: FeudColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}

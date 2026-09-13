@@ -1,0 +1,3 @@
+tags:
+  network:
+    description: "اختبارات شبكة حقيقية (UDP/broadcast) — ممكن تنحظر على بعض بيئات CI."

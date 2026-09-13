@@ -1,0 +1,99 @@
+name: Release
+
+# كل وسم بصيغة v* بيبني النسختين وبينشرهن كـ Release على GitHub.
+# وسم فيه شرطة (مثلاً v0.7.0-alpha.1) بينشر كنسخة تجريبية (pre-release).
+# بتقدر كمان تشغّله بإيدك من تبويب Actions.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.47.4"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Tests
+        run: flutter test
+
+      # الديمو أول: النسختين بيكتبوا على نفس الملف (app-release.apk)،
+      # فمنبني الديمو ومنسمّيه قبل ما نبني اللعبة.
+      - name: Build the demo APK
+        run: flutter build apk --release --dart-define=DEMO=true
+
+      - name: Name the demo after the tag
+        id: names
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          [ -z "$version" ] && version="$(date +%Y%m%d-%H%M)"
+          mkdir -p artifacts
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "artifacts/meen-al-atlasy-$version-demo.apk"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build the game APK
+        run: flutter build apk --release
+
+      - name: Name the game after the tag
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "artifacts/meen-al-atlasy-${{ steps.names.outputs.version }}.apk"
+
+      - name: Keep the APKs on the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks-${{ steps.names.outputs.version }}
+          path: artifacts/*.apk
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            نسختين بهاد الإصدار:
+
+            - `meen-al-atlasy-${{ steps.names.outputs.version }}.apk` — اللعبة. ركّبها على جهاز المضيف وعلى جهاز كل لاعب.
+            - `meen-al-atlasy-${{ steps.names.outputs.version }}-demo.apk` — الديمو: معرض الشاشات بجهاز واحد، بدون شبكة. بتنركّب جنب اللعبة.
+
+            > الـ APK موقّع بمفتاح تجربة، فأول تركيب بدّه تسمح بـ«مصادر غير معروفة».
+
+  # iOS: البناء بدون توقيع بس — النشر على TestFlight بدّه حساب أبل
+  # (خارج نطاق هالإصدار)، فالمهمة مكتوبة ومعطّلة.
+  ios:
+    if: false
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build ios --no-codesign

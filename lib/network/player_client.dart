@@ -1,0 +1,188 @@
+/// جهاز اللاعب — عميل WebSocket يتّصل بمضيف الغرفة، بديل جانب اللاعب
+/// بـ Nearby Connections بالنسخة الأصلية.
+library;
+
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+
+import '../game/models.dart';
+import 'messages.dart';
+
+/// حالة اتصال جهاز اللاعب بالمضيف.
+enum ConnectionStatus { idle, connecting, connected, disconnected }
+
+/// واجهة النقل اللي بيعتمد عليها [PlayerController] (Task 6) — تجريدها عن
+/// [PlayerClient] الحقيقي حتى تقدر اختبارات اللاعب تستخدم نسخة وهمية بدل
+/// اتصال WebSocket حقيقي. نفس فكرة `HostTransport` بجانب المضيف.
+abstract class PlayerTransport {
+  ValueListenable<GameState?> get state;
+  ValueListenable<ConnectionStatus> get status;
+  ValueListenable<String?> get playerId;
+  ValueListenable<TeamId?> get teamId;
+
+  /// [playerId] معرّف محفوظ من اتصال سابق يبعته المضيف بـ[Assigned] —
+  /// مرّره بس لما هاي *فعلاً* إعادة اتصال لنفس اللاعب ([rejoin]). اتصال
+  /// جديد لغرفة جديدة لازم يترك القيمة الافتراضية (`null`) — معرّفات
+  /// نقاط النهاية بترجع تتكرر بكل مضيف، فمعرّف قديم من لعبة سابقة ممكن
+  /// يصادف يطابق لاعب حيّ تاني باللعبة الجديدة (حكم المراجعة الحرج #٢).
+  Future<void> connect({
+    required InternetAddress host,
+    required int port,
+    required String playerName,
+    TeamId? teamId,
+    String? playerId,
+  });
+
+  void send(ClientMessage m);
+
+  Future<void> rejoin();
+
+  Future<void> disconnect();
+
+  Future<void> dispose();
+}
+
+/// عميل اللاعب — بيتّصل بمضيف عبر WebSocket، ويعرض حالة اللعبة ومعرّف
+/// اللاعب وفريقه كـ [ValueNotifier] تقدر الواجهة تستمع له مباشرة.
+class PlayerClient implements PlayerTransport {
+  @override
+  final ValueNotifier<GameState?> state = ValueNotifier<GameState?>(null);
+  @override
+  final ValueNotifier<ConnectionStatus> status =
+      ValueNotifier<ConnectionStatus>(ConnectionStatus.idle);
+  @override
+  final ValueNotifier<String?> playerId = ValueNotifier<String?>(null);
+  @override
+  final ValueNotifier<TeamId?> teamId = ValueNotifier<TeamId?>(null);
+
+  WebSocket? _ws;
+  InternetAddress? _lastHost;
+  int? _lastPort;
+  String? _lastPlayerName;
+
+  /// بيتّصل بمضيف على [host]:[port] وبيبعت رسالة انضمام باسم [playerName].
+  ///
+  /// لو في اتصال قديم لسا مفتوح (مثلاً نداء ثاني لـ [connect] أو [rejoin])،
+  /// منسكّره الأول — وبما إنه ممكن يوصل حدث onDone/onError تبعه بعد ما
+  /// نبدأ اتصال جديد، منربط كل مستمع بنسخة الـ socket اللي انطلق منها
+  /// (`ws` محليّة) حتى ما يقدر اتصال قديم يقلب حالة الاتصال الجديد.
+  @override
+  Future<void> connect({
+    required InternetAddress host,
+    required int port,
+    required String playerName,
+    TeamId? teamId,
+    String? playerId,
+  }) async {
+    final previous = _ws;
+    _ws = null;
+    if (previous != null) {
+      try {
+        await previous.close();
+      } catch (_) {
+        // ما بيهمّنا خطأ إغلاق اتصال قديم عم نتخلّى عنه.
+      }
+    }
+
+    _lastHost = host;
+    _lastPort = port;
+    _lastPlayerName = playerName;
+    this.teamId.value = teamId;
+    // اتصال جديد (بدون معرّف ممرّر) بيصفّر المعرّف المحفوظ من جلسة سابقة —
+    // وإلا معرّف قديم بيتصادف مع لاعب حيّ تاني بمضيف جديد (حكم مراجعة حرج
+    // #٢). [rejoin] هو الوحيد اللي بيمرّر معرّف فعلي هون.
+    this.playerId.value = playerId;
+
+    status.value = ConnectionStatus.connecting;
+    final WebSocket ws;
+    try {
+      ws = await WebSocket.connect('ws://${host.address}:$port/')
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      status.value = ConnectionStatus.disconnected;
+      rethrow;
+    }
+    _ws = ws;
+    ws.pingInterval = const Duration(seconds: 5);
+    status.value = ConnectionStatus.connected;
+    ws.listen(
+      (data) => _onData(ws, data),
+      onDone: () => _onClosed(ws),
+      onError: (_) => _onClosed(ws),
+    );
+    send(JoinMessage(playerName: playerName, teamId: teamId, playerId: playerId));
+  }
+
+  void _onData(WebSocket ws, dynamic data) {
+    if (!identical(_ws, ws)) return; // اتصال قديم استُبدل — نتجاهل حدثه.
+    try {
+      final message = decodeHostMessage(data as String);
+      switch (message) {
+        case StateUpdate(:final state):
+          this.state.value = state;
+        case Assigned(:final playerId, :final teamId):
+          this.playerId.value = playerId;
+          this.teamId.value = teamId;
+      }
+    } catch (_) {
+      // رسالة مشوّهة — نتجاهلها.
+    }
+  }
+
+  void _onClosed(WebSocket ws) {
+    if (!identical(_ws, ws)) return; // اتصال قديم استُبدل — نتجاهل حدثه.
+    status.value = ConnectionStatus.disconnected;
+  }
+
+  /// بيبعت رسالة للمضيف عبر الاتصال الحالي.
+  @override
+  void send(ClientMessage m) {
+    _ws?.add(encodeClientMessage(m));
+  }
+
+  /// بيعيد الاتصال بآخر مضيف، وبيبعت انضمام جديد بنفس الاسم والفريق
+  /// ونفس [playerId] المحفوظ — المضيف بيتعرّف على اللاعب من معرّفه (أو
+  /// اسمه إذا انقطع) ويعيد ربطه بنفس مكانه (Task 6).
+  @override
+  Future<void> rejoin() async {
+    final host = _lastHost;
+    final port = _lastPort;
+    final playerName = _lastPlayerName;
+    if (host == null || port == null || playerName == null) {
+      throw StateError('rejoin() called before a first connect()');
+    }
+    // منمرّر playerId المحفوظ صراحةً — هاي فعلاً إعادة اتصال لنفس اللاعب،
+    // مش اتصال جديد لغرفة جديدة (حكم مراجعة حرج #٢).
+    await connect(
+      host: host,
+      port: port,
+      playerName: playerName,
+      teamId: teamId.value,
+      playerId: playerId.value,
+    );
+  }
+
+  /// بيقطع الاتصال بالمضيف نهائياً.
+  @override
+  Future<void> disconnect() async {
+    final ws = _ws;
+    _ws = null;
+    if (ws != null) {
+      await ws.close();
+    }
+    status.value = ConnectionStatus.disconnected;
+  }
+
+  /// بيقطع الاتصال ويحرّر كل الـ [ValueNotifier] — لازم تناديها لما تخلص
+  /// من العميل نهائياً (مش بين إعادة اتصال وإعادة اتصال).
+  @override
+  Future<void> dispose() async {
+    await disconnect();
+    state.dispose();
+    status.dispose();
+    playerId.dispose();
+    teamId.dispose();
+  }
+}
