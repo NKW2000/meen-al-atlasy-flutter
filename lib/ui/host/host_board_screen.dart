@@ -165,10 +165,19 @@ class HostGameBoardScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                // مين عليه الدور هلق — المضيف بدّه يعرف على مين بيحكم.
-                HostTurnChip(state: state),
-                const SizedBox(height: 10),
-                judgeBar,
+                // زر الحكم عاليسار وبلوك الدور عاليمين، نصّ ونصّ (طلب
+                // المستخدم). الصف مثبّت LTR حتى «يسار/يمين» ما تنقلب بالـ RTL.
+                IntrinsicHeight(
+                  child: Row(
+                    textDirection: TextDirection.ltr,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: judgeBar),
+                      const SizedBox(width: 10),
+                      Expanded(child: HostTurnChip(state: state)),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -419,20 +428,14 @@ class HostTurnChip extends StatelessWidget {
     final color = team?.color() ?? FeudColors.panelDark;
     final ink = team == null ? FeudColors.textMuted : team.inkColor();
 
-    final String label;
-    if (current != null) {
-      label = 'دور ${current.name} — ${state.teams[current.teamId]?.name ?? ''}';
-    } else {
-      final a = state.podiumPlayer(TeamId.team1)?.name;
-      final b = state.podiumPlayer(TeamId.team2)?.name;
-      label = switch (state.phase) {
-        RoundPhase.faceOff when a != null && b != null => 'المواجهة: $a ضد $b — أول ضغطة بتجاوب',
-        RoundPhase.faceOff => 'المواجهة — أول ضغطة بتجاوب',
-        RoundPhase.playOrPass => '${state.teams[state.faceOffWinner]?.name ?? ''} عم يقرر: يلعب أو يمرّر',
-        RoundPhase.roundEnd => 'انتهت الجولة — اكشف الباقي',
-        _ => '—',
-      };
-    }
+    // الاسم والرقم بس (طلب المستخدم) — البلوك نصّ عرض، جنب زر الحكم.
+    final label = current?.name ??
+        switch (state.phase) {
+          RoundPhase.faceOff => 'المواجهة',
+          RoundPhase.playOrPass => 'العب أو تمرير',
+          RoundPhase.roundEnd => 'انتهت الجولة',
+          _ => '—',
+        };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

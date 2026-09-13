@@ -295,20 +295,19 @@ void hostTurnChipTests() {
     final b1 = base.podiumPlayer(TeamId.team2)!;
 
     await _pump(tester, board(base.copyWith(phase: RoundPhase.faceOff, buzzState: BuzzState.open)));
-    expect(find.text('المواجهة: ${a1.name} ضد ${b1.name} — أول ضغطة بتجاوب'), findsOneWidget);
+    expect(find.text('المواجهة'), findsOneWidget);
 
     await _pump(tester, board(base.copyWith(phase: RoundPhase.faceOff, buzzedPlayerId: a1.id,
         faceOffTeam: TeamId.team1, buzzState: BuzzState.lockedTeam1)));
-    expect(find.text('دور ${a1.name} — ${base.teams[TeamId.team1]!.name}'), findsOneWidget);
+    expect(find.text(a1.name), findsOneWidget);
 
     // الأول غلط ← الدور للخصم.
     await _pump(tester, board(base.copyWith(phase: RoundPhase.faceOffSecond,
         faceOffTeam: TeamId.team2, buzzState: BuzzState.closed, wrongPlayers: {a1.id})));
-    expect(find.text('دور ${b1.name} — ${base.teams[TeamId.team2]!.name}'), findsOneWidget);
+    expect(find.text(b1.name), findsOneWidget);
 
     await _pump(tester, board(base.copyWith(phase: RoundPhase.play, controllingTeam: TeamId.team1,
         turnPlayerId: 'a2', buzzState: BuzzState.closed)));
-    expect(find.text('دور ${base.player('a2')!.name} — ${base.teams[TeamId.team1]!.name}'),
-        findsOneWidget);
+    expect(find.text(base.player('a2')!.name), findsOneWidget);
   });
 }
