@@ -83,7 +83,6 @@ class PlayerScreen extends StatelessWidget {
           teamId: teamId,
           mark: mark,
           status: status,
-          onBuzz: onBuzz,
         ),
         // نفس حركة الخطأ اللي بتطلع عند المضيف — بتطلع عند الكل،
         // وكمان لما يخلص الوقت بدون جواب.

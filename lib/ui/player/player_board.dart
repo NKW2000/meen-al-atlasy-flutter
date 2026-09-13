@@ -7,10 +7,8 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../game/models.dart';
-import '../../feedback/game_feedback.dart';
 import '../../network/player_client.dart';
 import '../components/seat_badge.dart';
 import '../components/stage.dart';
@@ -19,13 +17,15 @@ import '../host/host_board_screen.dart';
 import '../responsive.dart';
 import '../theme.dart';
 
-class PlayerBoard extends StatefulWidget {
+/// بمراحل اللعب ما في كبسة (طلب المستخدم): اللاعب بيحكي جوابه والمضيف
+/// بيحكم، والعدّاد بيمشي وما بيوقف — إذا ما لحق يجاوب بينحسب عليه غلط.
+/// الزر الكبير بالمواجهة (سباق الضغط) بيضل بشاشته.
+class PlayerBoard extends StatelessWidget {
   final GameState? state;
   final String? playerId;
   final TeamId? teamId;
   final PlayerMark mark;
   final ConnectionStatus status;
-  final VoidCallback onBuzz;
 
   const PlayerBoard({
     super.key,
@@ -34,112 +34,51 @@ class PlayerBoard extends StatefulWidget {
     required this.teamId,
     required this.mark,
     required this.status,
-    required this.onBuzz,
   });
 
   @override
-  State<PlayerBoard> createState() => _PlayerBoardState();
-}
-
-class _PlayerBoardState extends State<PlayerBoard> with SingleTickerProviderStateMixin {
-  /// إطار ذهبي بيخبى ونبضة ببلوك الدور لحظة الضغط — مع الصوت والاهتزاز، حتى يحس
-  /// اللاعب إنه ضغطته وصلت قبل ما يرجع رد المضيف من الشبكة.
-  late final AnimationController _flash = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 360),
-  );
-
-  @override
-  void dispose() {
-    _flash.dispose();
-    super.dispose();
-  }
-
-  void _signal() {
-    HapticFeedback.heavyImpact();
-    GameFeedbackScope.maybeOf(context)?.play(Cue.buzz);
-    _flash.forward(from: 0);
-    widget.onBuzz();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // الخلفية ثابتة بلون المسرح (طلب المستخدم — بالكوتلن كانت تتلوّن حسب
-    // الحالة): ضغط/صح/غلط بيبيّنوا ببلوك الدور تحت، مش بلون الشاشة كلها.
-    // بمرحلة اللعب دورك بينبّه: أي لمسة بتقول للمضيف إنك عم تجاوب.
-    final canSignal = widget.mark == PlayerMark.armed;
-    final state = widget.state;
+    final state = this.state;
     final seconds = state == null
         ? 0
         : (state.answerSecondsLeft > state.choiceSecondsLeft
-              ? state.answerSecondsLeft
-              : state.choiceSecondsLeft);
+            ? state.answerSecondsLeft
+            : state.choiceSecondsLeft);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: canSignal ? _signal : null,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            color: FeudColors.stage,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            // الوقت والأخطاء بالزاويتين الفوقانيتين بمستوى النوتش — نفس المضيف.
-            child: SafeArea(
-              top: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  PortraitBoardHeader(
-                    seconds: seconds,
-                    strikes: state?.strikes ?? 0,
-                    total: state?.strikesToSteal ?? 3,
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: AnswerBoardColumns(
-                      answers: state?.currentQuestion?.answers ?? const [],
-                      columns: isPortrait(context) ? 1 : 2,
-                      enabled: false,
-                      revealHiddenText: false,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // نقاط الفرق مش هون — بتبيّن بشاشة النتيجة بين الجولات.
-                  // نبضة صغيرة ببلوك الدور لحظة الضغط.
-                  ScaleTransition(
-                    scale: TweenSequence<double>([
-                      TweenSequenceItem(tween: Tween(begin: 1, end: 1.06), weight: 35),
-                      TweenSequenceItem(tween: Tween(begin: 1.06, end: 1), weight: 65),
-                    ]).animate(_flash),
-                    child: TurnBlock(
-                      state: state,
-                      playerId: widget.playerId,
-                      teamId: widget.teamId,
-                      mark: widget.mark,
-                      status: widget.status,
-                    ),
-                  ),
-                ],
+    return Container(
+      color: FeudColors.stage,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      // الوقت والأخطاء بالزاويتين الفوقانيتين بمستوى النوتش — نفس المضيف.
+      child: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PortraitBoardHeader(
+              seconds: seconds,
+              strikes: state?.strikes ?? 0,
+              total: state?.strikesToSteal ?? 3,
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: AnswerBoardColumns(
+                answers: state?.currentQuestion?.answers ?? const [],
+                columns: isPortrait(context) ? 1 : 2,
+                enabled: false,
+                revealHiddenText: false,
               ),
             ),
-          ),
-          // إطار ذهبي رفيع حول الشاشة بيخبى بسرعة — بدون ما تضوي الشاشة
-          // كلها (كانت ومضة كاملة وما عجبت).
-          IgnorePointer(
-            child: FadeTransition(
-              opacity: Tween<double>(
-                begin: 1,
-                end: 0,
-              ).chain(CurveTween(curve: Curves.easeOut)).animate(_flash),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: FeudColors.gold, width: 6),
-                ),
-              ),
+            const SizedBox(height: 10),
+            // نقاط الفرق مش هون — بتبيّن بشاشة النتيجة بين الجولات.
+            TurnBlock(
+              state: state,
+              playerId: playerId,
+              teamId: teamId,
+              mark: mark,
+              status: status,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
