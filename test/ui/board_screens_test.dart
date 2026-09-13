@@ -181,6 +181,30 @@ void main() {
       expect(find.text('٤'), findsWidgets);
     });
 
+    testWidgets('after a wrong first face-off answer the turn block names the opponent, '
+        'not the viewer', (tester) async {
+      // a1 ضغط وغلط ← الدور للاعب المنصة تبع الفريق التاني (b1).
+      final second = base.copyWith(
+        phase: RoundPhase.faceOffSecond,
+        faceOffTeam: TeamId.team2,
+        buzzState: BuzzState.closed,
+        wrongPlayers: {'a1'},
+      );
+      final opponent = second.podiumPlayer(TeamId.team2)!;
+
+      await _pump(tester, screen(second, playerId: 'a1'), portrait: true);
+      expect(find.text('دور ${opponent.name}'), findsOneWidget);
+      expect(find.text('دورك'), findsNothing);
+
+      await _pump(tester, screen(second, playerId: opponent.id), portrait: true);
+      expect(find.text('دورك'), findsOneWidget);
+
+      // بالمواجهة قبل أي ضغطة ما في «دورك» عند حدا.
+      await _pump(tester, screen(faceOff, playerId: 'a3'), portrait: true);
+      expect(find.text('دورك'), findsNothing);
+      expect(find.text('المواجهة — أول ضغطة بتجاوب'), findsOneWidget);
+    });
+
     testWidgets('a disconnected player sees the connection label', (tester) async {
       await _pump(
         tester,

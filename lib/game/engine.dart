@@ -41,11 +41,7 @@ class GameEngine {
       PlayerJoined() => _handlePlayerJoined(event),
       PlayerLeft() => _handlePlayerLeft(event),
       PlayerMoved() => _handlePlayerMoved(event),
-      // أول مواجهة: الزر مفتوح من هلق — منشغّل عدّاد المواجهة.
-      StartGame() => _state.copyWith(
-          matchStarted: true,
-          answerSecondsLeft: _state.faceOffLimitSeconds,
-        ),
+      StartGame() => _state.copyWith(matchStarted: true),
       ReplaceQuestion() => _handleReplaceQuestion(event.question),
       Tick() => _handleTick(),
       EndGame() => _state.copyWith(
@@ -77,13 +73,14 @@ class GameEngine {
           TeamId.team1 => BuzzState.lockedTeam1,
           TeamId.team2 => BuzzState.lockedTeam2,
         };
-        // الضغطة بتوقف العدّاد: اللاعب صار جاهز يجاوب والمضيف
-        // بيحكم على راحته.
+        // الضغطة بتشغّل وقت الجواب (طلب المستخدم — بالأصل كانت توقفه):
+        // اللاعب لازم يجاوب قبل ما يخلص، وإلا بينحسب غلط والدور للخصم.
         return _state.copyWith(
           buzzState: locked,
           faceOffTeam: player.teamId,
           buzzedPlayerId: player.id,
-          clockPaused: true,
+          answerSecondsLeft: _state.answerLimitSeconds,
+          clockPaused: false,
         );
 
       // بمراحل اللعب الضغطة بتوضّح إنه اللاعب عم يجاوب هلق وبتوقف
@@ -126,7 +123,7 @@ class GameEngine {
       pot: 0,
       wrongPlayers: const {},
       correctPlayers: const {},
-      answerSecondsLeft: _state.faceOffLimitSeconds, // الزر مفتوح — عدّاد المواجهة
+      answerSecondsLeft: 0,
       choiceSecondsLeft: 0,
       lastAward: null,
       roundWinner: null,
@@ -271,7 +268,7 @@ class GameEngine {
           buzzState: BuzzState.open,
           faceOffTeam: null,
           buzzedPlayerId: null,
-          answerSecondsLeft: _state.faceOffLimitSeconds,
+          answerSecondsLeft: 0,
           wrongPlayers: const {},
           // الدور بينتقل للرقم اللي بعده، والمضيف بيبدّل السؤال.
           faceOffSeat: marked.nextSeat(),
@@ -319,11 +316,6 @@ class GameEngine {
         return _state.copyWith(answerSecondsLeft: left);
       }
       _state = _state.copyWith(answerSecondsLeft: 0);
-      // عدّاد المواجهة خلص وما حدا ضغط: مش غلط على حدا — بس منبيّن
-      // للمضيف «بدّل السؤال»، والزر بيضل مفتوح حتى ما تعلق اللعبة.
-      if (_state.phase == RoundPhase.faceOff && _state.buzzedPlayerId == null) {
-        return _state.copyWith(faceOffFailed: true);
-      }
       return _handleWrong();
     }
 
@@ -370,8 +362,6 @@ class GameEngine {
       faceOffWinner: null,
       faceOffFailed: false,
       faceOffSeat: _state.nextSeat(),
-      // الزر مفتوح — عدّاد المواجهة.
-      answerSecondsLeft: _state.faceOffLimitSeconds,
     );
   }
 

@@ -12,9 +12,6 @@ class GameSettings {
   /// كم ثانية عند اللاعب ليجاوب قبل ما ينحسب عليه خطأ.
   final int answerSeconds;
 
-  /// كم ثانية لزر المواجهة قبل ما يبيّن للمضيف «بدّل السؤال».
-  final int faceOffSeconds;
-
   /// كم ثانية لقرار «نلعب أو نمرّر».
   final int choiceSeconds;
   final Map<TeamId, String> teamNames;
@@ -33,7 +30,6 @@ class GameSettings {
     this.multipliers = defaultMultipliers,
     this.strikesToSteal = defaultStrikes,
     this.answerSeconds = defaultAnswerSeconds,
-    this.faceOffSeconds = defaultFaceOffSeconds,
     this.choiceSeconds = defaultChoiceSeconds,
     this.teamNames = defaultTeamNames,
     this.roomName = defaultRoomName,
@@ -53,9 +49,6 @@ class GameSettings {
   static const int minAnswerSeconds = 5;
   static const int maxAnswerSeconds = 60;
   static const int defaultAnswerSeconds = 10;
-  static const int minFaceOffSeconds = 3;
-  static const int maxFaceOffSeconds = 60;
-  static const int defaultFaceOffSeconds = 10;
   static const int minChoiceSeconds = 3;
   static const int maxChoiceSeconds = 30;
   static const int defaultChoiceSeconds = 5;
@@ -105,8 +98,6 @@ class GameSettings {
       strikesToSteal: strikesToSteal.clamp(minStrikes, maxStrikes).toInt(),
       answerSeconds:
           answerSeconds.clamp(minAnswerSeconds, maxAnswerSeconds).toInt(),
-      faceOffSeconds:
-          faceOffSeconds.clamp(minFaceOffSeconds, maxFaceOffSeconds).toInt(),
       choiceSeconds:
           choiceSeconds.clamp(minChoiceSeconds, maxChoiceSeconds).toInt(),
       roomName: _isBlank(cappedRoom) ? defaultRoomName : cappedRoom,
@@ -128,7 +119,6 @@ class GameSettings {
     List<int>? multipliers,
     int? strikesToSteal,
     int? answerSeconds,
-    int? faceOffSeconds,
     int? choiceSeconds,
     Map<TeamId, String>? teamNames,
     String? roomName,
@@ -142,7 +132,6 @@ class GameSettings {
         multipliers: multipliers ?? this.multipliers,
         strikesToSteal: strikesToSteal ?? this.strikesToSteal,
         answerSeconds: answerSeconds ?? this.answerSeconds,
-        faceOffSeconds: faceOffSeconds ?? this.faceOffSeconds,
         choiceSeconds: choiceSeconds ?? this.choiceSeconds,
         teamNames: teamNames ?? this.teamNames,
         roomName: roomName ?? this.roomName,
@@ -160,7 +149,6 @@ class GameSettings {
           listEq(other.multipliers, multipliers) &&
           other.strikesToSteal == strikesToSteal &&
           other.answerSeconds == answerSeconds &&
-          other.faceOffSeconds == faceOffSeconds &&
           other.choiceSeconds == choiceSeconds &&
           mapEq(other.teamNames, teamNames) &&
           other.roomName == roomName &&
@@ -175,7 +163,6 @@ class GameSettings {
         Object.hashAll(multipliers),
         strikesToSteal,
         answerSeconds,
-        faceOffSeconds,
         choiceSeconds,
         _mapHash(teamNames),
         roomName,

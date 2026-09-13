@@ -22,12 +22,10 @@ void main() {
   });
 
   test('out of range values are pulled back into range', () {
-    final settings = GameSettings(rounds: 99, strikesToSteal: 0, faceOffSeconds: 0).clamped();
+    final settings = GameSettings(rounds: 99, strikesToSteal: 0).clamped();
 
     expect(settings.rounds, GameSettings.maxRounds);
     expect(settings.strikesToSteal, GameSettings.minStrikes);
-    expect(settings.faceOffSeconds, GameSettings.minFaceOffSeconds);
-    expect(GameSettings(faceOffSeconds: 999).clamped().faceOffSeconds, GameSettings.maxFaceOffSeconds);
   });
 
   test("an empty multiplier list falls back to the show's defaults", () {

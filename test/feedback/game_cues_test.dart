@@ -36,11 +36,11 @@ void main() {
     expect(cuesFor(awarded, awarded), isEmpty);
   });
 
-  test('a strike plays its own numbered sound', () {
-    expect(cuesFor(base.copyWith(strikes: 1), base.copyWith(strikes: 2)), [Cue.strike2]);
-    expect(cuesFor(base, base.copyWith(strikes: 1)), [Cue.strike1]);
-    expect(cuesFor(base.copyWith(strikes: 2), base.copyWith(strikes: 3)), [Cue.strike3]);
-    expect(cuesFor(base.copyWith(strikes: 3), base.copyWith(strikes: 4)), [Cue.strike3]);
+  test('a strike plays the wrong buzzer together with its own numbered sting', () {
+    expect(cuesFor(base.copyWith(strikes: 1), base.copyWith(strikes: 2)), [Cue.wrong, Cue.strike2]);
+    expect(cuesFor(base, base.copyWith(strikes: 1)), [Cue.wrong, Cue.strike1]);
+    expect(cuesFor(base.copyWith(strikes: 2), base.copyWith(strikes: 3)), [Cue.wrong, Cue.strike3]);
+    expect(cuesFor(base.copyWith(strikes: 3), base.copyWith(strikes: 4)), [Cue.wrong, Cue.strike3]);
   });
 
   test('a face-off miss ticks wrong without a strike', () {
@@ -54,7 +54,7 @@ void main() {
 
   test('several changes at once play only the first matching rule', () {
     // خطأ + كشف بنفس اللقطة: الخطأ أول.
-    expect(cuesFor(base, _reveal(base, 1).copyWith(strikes: 1)), [Cue.strike1]);
+    expect(cuesFor(base, _reveal(base, 1).copyWith(strikes: 1)), [Cue.wrong, Cue.strike1]);
     // wrongTicks + كشف: الغلط أول.
     expect(cuesFor(base, _reveal(base, 1).copyWith(wrongTicks: 1)), [Cue.wrong]);
   });

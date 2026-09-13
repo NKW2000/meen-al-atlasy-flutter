@@ -397,9 +397,6 @@ const int choiceSeconds = 5;
 /// الوقت الافتراضي للجواب.
 const int defaultAnswerSeconds = 10;
 
-/// كم ثانية لزر المواجهة قبل ما يبيّن للمضيف «بدّل السؤال» (إضافة عن الأصل).
-const int defaultFaceOffSeconds = 10;
-
 const Object _unset = Object();
 
 class GameState {
@@ -453,9 +450,6 @@ class GameState {
   /// كم ثانية للاعب يجاوب قبل ما ينحسب عليه خطأ.
   final int answerLimitSeconds;
 
-  /// كم ثانية لزر المواجهة قبل ما يبيّن للمضيف إنه ما حدا ضغط.
-  final int faceOffLimitSeconds;
-
   /// كم ثانية للفائز بالمواجهة ليقرّر: يلعب أو يمرّر.
   final int choiceLimitSeconds;
 
@@ -501,7 +495,6 @@ class GameState {
     this.multipliers = const [1, 1, 2, 3],
     this.strikesToSteal = 3,
     this.answerLimitSeconds = defaultAnswerSeconds,
-    this.faceOffLimitSeconds = defaultFaceOffSeconds,
     this.choiceLimitSeconds = choiceSeconds,
     this.answerSecondsLeft = 0,
     this.clockPaused = false,
@@ -655,7 +648,6 @@ class GameState {
     List<int>? multipliers,
     int? strikesToSteal,
     int? answerLimitSeconds,
-    int? faceOffLimitSeconds,
     int? choiceLimitSeconds,
     int? answerSecondsLeft,
     bool? clockPaused,
@@ -705,7 +697,6 @@ class GameState {
         multipliers: multipliers ?? this.multipliers,
         strikesToSteal: strikesToSteal ?? this.strikesToSteal,
         answerLimitSeconds: answerLimitSeconds ?? this.answerLimitSeconds,
-        faceOffLimitSeconds: faceOffLimitSeconds ?? this.faceOffLimitSeconds,
         choiceLimitSeconds: choiceLimitSeconds ?? this.choiceLimitSeconds,
         answerSecondsLeft: answerSecondsLeft ?? this.answerSecondsLeft,
         clockPaused: clockPaused ?? this.clockPaused,
@@ -745,7 +736,6 @@ class GameState {
         'multipliers': multipliers,
         'strikesToSteal': strikesToSteal,
         'answerLimitSeconds': answerLimitSeconds,
-        'faceOffLimitSeconds': faceOffLimitSeconds,
         'choiceLimitSeconds': choiceLimitSeconds,
         'answerSecondsLeft': answerSecondsLeft,
         'clockPaused': clockPaused,
@@ -806,8 +796,6 @@ class GameState {
         strikesToSteal: json['strikesToSteal'] as int? ?? 3,
         answerLimitSeconds:
             json['answerLimitSeconds'] as int? ?? defaultAnswerSeconds,
-        faceOffLimitSeconds:
-            json['faceOffLimitSeconds'] as int? ?? defaultFaceOffSeconds,
         choiceLimitSeconds: json['choiceLimitSeconds'] as int? ?? choiceSeconds,
         answerSecondsLeft: json['answerSecondsLeft'] as int? ?? 0,
         clockPaused: json['clockPaused'] as bool? ?? false,
@@ -846,7 +834,6 @@ class GameState {
         listEq(other.multipliers, multipliers) &&
         other.strikesToSteal == strikesToSteal &&
         other.answerLimitSeconds == answerLimitSeconds &&
-        other.faceOffLimitSeconds == faceOffLimitSeconds &&
         other.choiceLimitSeconds == choiceLimitSeconds &&
         other.answerSecondsLeft == answerSecondsLeft &&
         other.clockPaused == clockPaused &&
@@ -883,7 +870,6 @@ class GameState {
         Object.hashAll(multipliers),
         strikesToSteal,
         answerLimitSeconds,
-        faceOffLimitSeconds,
         choiceLimitSeconds,
         answerSecondsLeft,
         clockPaused,

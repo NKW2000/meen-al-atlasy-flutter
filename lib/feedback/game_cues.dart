@@ -25,7 +25,8 @@ List<Cue> cuesFor(GameState? previous, GameState next) {
   }
   // نهاية الجولة بتكشف اللوح كله، فبنعلن الفوز مش كل خانة.
   if (award != null && award != previous.lastAward) return const [Cue.win];
-  if (next.strikes > previous.strikes) return [strikeCue(next.strikes)];
+  // كل X: صوت الغلط (الطنيري) مع طنّة رقم الـ X — طلب المستخدم.
+  if (next.strikes > previous.strikes) return [Cue.wrong, strikeCue(next.strikes)];
   // غلط بالمواجهة ما بياخد X، بس لازم ينسمع.
   if (next.wrongTicks > previous.wrongTicks) return const [Cue.wrong];
   if (_revealedCount(next) > _revealedCount(previous)) return const [Cue.reveal];
