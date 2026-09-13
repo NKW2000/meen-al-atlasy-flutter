@@ -117,12 +117,7 @@ class HostController extends ChangeNotifier {
   Future<void> backToLobby() async {
     _stopClock();
     _started = false;
-    final players = List<Player>.of(_engine.state.players);
-    _engine.reset(newGame());
-    for (final player in players) {
-      _engine.apply(PlayerJoined(player.id, player.name, player.teamId));
-    }
-    server.broadcast(StateUpdate(state: _engine.state.maskedForPlayers()));
+    _rebuildWithPlayers();
     if (_advertising) {
       try {
         await beacon.start(roomName: roomName(), port: server.port);
@@ -131,6 +126,27 @@ class HostController extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  /// اللوبي بيبني الحالة من الإعدادات **الحالية** أول ما يفوت عليه: أسماء
+  /// الفرق، الجولات، المضاعفات والوقت بتتعدّل بشاشة الإعدادات بعد
+  /// [resetSession]، فبدون هالنداء اللعبة بتبلّش بالإعدادات القديمة
+  /// واللاعبين بيشوفوا أسماء فرق غير اللي سمّاها المضيف. اللاعبين
+  /// المتّصلين بيضلوا بأماكنهم. بعد ما تبلّش اللعبة ما بيغيّر شي.
+  void applySettings() {
+    if (_started) return;
+    _rebuildWithPlayers();
+    notifyListeners();
+  }
+
+  /// حالة جديدة من [newGame] مع إعادة انضمام نفس اللاعبين، وبثّها للكل.
+  void _rebuildWithPlayers() {
+    final players = List<Player>.of(_engine.state.players);
+    _engine.reset(newGame());
+    for (final player in players) {
+      _engine.apply(PlayerJoined(player.id, player.name, player.teamId));
+    }
+    server.broadcast(StateUpdate(state: _engine.state.maskedForPlayers()));
   }
 
   Future<void> startHosting() async {

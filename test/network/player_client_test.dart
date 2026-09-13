@@ -11,6 +11,7 @@ import 'package:meen_al_atlasy/network/host_server.dart';
 import 'package:meen_al_atlasy/network/messages.dart';
 import 'package:meen_al_atlasy/network/player_client.dart';
 
+import '../game/fixtures.dart';
 import 'helpers.dart';
 
 void main() {
@@ -97,6 +98,8 @@ void main() {
         final firstEndpoint = received[0].endpointId;
         server.send(firstEndpoint, Assigned(playerId: 'ep0', teamId: TeamId.team1));
         await waitForValue(client.playerId, (v) => v == 'ep0');
+        server.broadcast(StateUpdate(state: freshState().maskedForPlayers()));
+        await waitForValue(client.state, (v) => v != null);
 
         // اتصال **جديد** — مو rejoin — مثلاً اللاعب دخل غرفة/لعبة تانية.
         // معرّف 'ep0' القديم لازم يترك، حتى لو لسا محفوظ بحقل الحالة.
@@ -120,6 +123,8 @@ void main() {
             .message as JoinMessage;
         expect(secondJoin.playerId, isNull);
         expect(client.playerId.value, isNull);
+        // ولا حالة لعبة قديمة — اللوح بيضل فاضي لحد ما يبعت المضيف الجديد.
+        expect(client.state.value, isNull);
 
         await sub.cancel();
       },

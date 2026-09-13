@@ -67,6 +67,8 @@ class _NoopPlayerTransport implements PlayerTransport {
   @override
   Future<void> disconnect() async {}
   @override
+  Future<void> leave() async {}
+  @override
   Future<void> dispose() async {}
 }
 

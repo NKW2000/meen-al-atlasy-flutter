@@ -548,6 +548,48 @@ void main() {
     expect(transport.stopCalls, equals(0));
   });
 
+  test('applySettings rebuilds the lobby state from the current settings and keeps '
+      'the connected players', () async {
+    // الإعدادات بتتغيّر بعد resetSession (المضيف بيعدّلها بشاشة الإعدادات
+    // قبل اللوبي) — اللوبي لازم يبني الحالة من الإعدادات الحالية.
+    var teamName = 'الفريق الأخضر';
+    final vm = HostController(
+      server: transport,
+      beacon: beacon,
+      newGame: () => _newGame().copyWith(
+        teams: {
+          TeamId.team1: TeamState(id: TeamId.team1, name: teamName),
+          TeamId.team2: const TeamState(id: TeamId.team2, name: 'الفريق الأزرق'),
+        },
+        multipliers: const [1, 2, 3],
+      ),
+    );
+    await vm.startHosting();
+    join(transport, ['سامر', 'ليلى']);
+    await pump();
+    expect(vm.state.teams[TeamId.team1]!.name, 'الفريق الأخضر');
+
+    teamName = 'نمور الشام';
+    final before = transport.broadcasts.length;
+    vm.applySettings();
+    await pump();
+
+    expect(vm.state.teams[TeamId.team1]!.name, 'نمور الشام');
+    expect(vm.state.multipliers, [1, 2, 3]);
+    expect(vm.state.players.map((p) => p.name).toSet(), {'سامر', 'ليلى'});
+    // اللاعبين لازم يشوفوا الأسماء الجديدة فوراً.
+    expect(transport.broadcasts.length, greaterThan(before));
+    final last = transport.broadcasts.whereType<StateUpdate>().last;
+    expect(last.state.teams[TeamId.team1]!.name, 'نمور الشام');
+
+    // بعد ما تبلّش اللعبة ما بتنعاد الحالة.
+    vm.startGame();
+    teamName = 'غيره';
+    vm.applySettings();
+    expect(vm.state.teams[TeamId.team1]!.name, 'نمور الشام');
+    expect(vm.state.matchStarted, isTrue);
+  });
+
   test('resetSession stops the server and the beacon and clears the state',
       () async {
     final vm = controller();

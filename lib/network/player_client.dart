@@ -41,6 +41,10 @@ abstract class PlayerTransport {
 
   Future<void> disconnect();
 
+  /// بيطلع من اللعبة نهائياً: بيقطع الاتصال وبينسى الحالة والمقعد والفريق
+  /// — عكس [disconnect] اللي بيحافظ عليهم لـ[rejoin].
+  Future<void> leave();
+
   Future<void> dispose();
 }
 
@@ -94,6 +98,9 @@ class PlayerClient implements PlayerTransport {
     // وإلا معرّف قديم بيتصادف مع لاعب حيّ تاني بمضيف جديد (حكم مراجعة حرج
     // #٢). [rejoin] هو الوحيد اللي بيمرّر معرّف فعلي هون.
     this.playerId.value = playerId;
+    // اتصال جديد ما بيورث حالة لعبة قديمة — اللاعب ما بيشوف لوح غرفة راحت
+    // لحد ما توصل أول لقطة من المضيف الجديد.
+    if (playerId == null) state.value = null;
 
     status.value = ConnectionStatus.connecting;
     final WebSocket ws;
@@ -173,6 +180,17 @@ class PlayerClient implements PlayerTransport {
       await ws.close();
     }
     status.value = ConnectionStatus.disconnected;
+  }
+
+  @override
+  Future<void> leave() async {
+    await disconnect();
+    status.value = ConnectionStatus.idle;
+    _lastHost = null;
+    _lastPort = null;
+    state.value = null;
+    playerId.value = null;
+    teamId.value = null;
   }
 
   /// بيقطع الاتصال ويحرّر كل الـ [ValueNotifier] — لازم تناديها لما تخلص

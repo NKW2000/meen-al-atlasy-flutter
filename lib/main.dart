@@ -182,8 +182,11 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
             listenable: host,
             builder: (context, _) => GameOverScreen(
               state: host.state,
-              onBackHome: () =>
-                  Navigator.of(context).popUntil((route) => route.settings.name == 'home'),
+              onBackHome: () {
+                // خلصت اللعبة: منسكّر الغرفة حتى ما يضل اللاعبين معلّقين عليها.
+                unawaited(host.resetSession());
+                Navigator.of(context).popUntil((route) => route.settings.name == 'home');
+              },
               onBackToLobby: () {
                 // نفس الغرفة ونفس اللاعبين — بس نقاط وأسئلة جديدة،
                 // واللاعبين بيرجعوا يختاروا فرقهم من اللوبي.
@@ -325,6 +328,17 @@ class _HostLobbyRoute extends StatefulWidget {
 class _HostLobbyRouteState extends State<_HostLobbyRoute> {
   InternetAddress? _ip;
   Timer? _ipTimer;
+  bool _applied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_applied) return;
+    _applied = true;
+    // أسماء الفرق والجولات والوقت من شاشة الإعدادات — اللوبي بيبني الحالة
+    // منها هلق، مش من لحظة الضغط على «استضافة».
+    AppScope.of(context).host.applySettings();
+  }
 
   @override
   void initState() {
@@ -541,6 +555,8 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
                           },
                           onDismiss: () {
                             setState(() => _showLeft = false);
+                            // طلوع نهائي: بدون اتصال ولا حالة قديمة للانضمام الجاي.
+                            unawaited(player.leave());
                             Navigator.of(context)
                                 .popUntil((route) => route.settings.name == 'home');
                           },
@@ -642,6 +658,8 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
                         dismissText: 'كمّل اللعب',
                         onConfirm: () {
                           setState(() => _confirmExit = false);
+                          // «إذا طلعت بتنتهي عند كل اللاعبين» — فعلاً: منوقّف الخادم.
+                          unawaited(host.resetSession());
                           Navigator.of(context).popUntil((route) => route.settings.name == 'home');
                         },
                         onDismiss: () => setState(() => _confirmExit = false),

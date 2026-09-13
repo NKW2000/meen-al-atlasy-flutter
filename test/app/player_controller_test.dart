@@ -63,6 +63,15 @@ class FakePlayerTransport implements PlayerTransport {
   }
 
   @override
+  Future<void> leave() async {
+    await disconnect();
+    status.value = ConnectionStatus.idle;
+    state.value = null;
+    playerId.value = null;
+    teamId.value = null;
+  }
+
+  @override
   Future<void> dispose() async {
     disposeCalls++;
   }
@@ -225,6 +234,28 @@ void main() {
 
     expect(controller.status, equals(ConnectionStatus.disconnected));
     expect(controller.canBuzz(), isFalse);
+  });
+
+  test('leave disconnects and forgets the room, the seat and the game state — '
+      'but keeps the name for the next join', () async {
+    await connect();
+    transport.state.value = _state();
+    expect(controller.state, isNotNull);
+
+    await controller.leave();
+
+    expect(transport.disconnectCalls, equals(1));
+    expect(controller.status, equals(ConnectionStatus.idle));
+    expect(controller.state, isNull);
+    expect(controller.playerId, isNull);
+    expect(controller.teamId, isNull);
+    expect(controller.rooms, isEmpty);
+    expect(controller.pendingName, equals('ليلى'));
+
+    // الانضمام من جديد بيبلّش بحث جديد بدل ما يبعت الاسم على اتصال قديم.
+    controller.join('ليلى');
+    expect(discovery.startCalls, equals(2));
+    expect(transport.sent.whereType<JoinMessage>(), isEmpty);
   });
 
   test('choose is only sent during play-or-pass and only for this player',

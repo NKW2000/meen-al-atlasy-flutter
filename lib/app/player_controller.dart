@@ -183,6 +183,19 @@ class PlayerController extends ChangeNotifier {
     client.send(ChangeTeamMessage(playerId: id, teamId: t));
   }
 
+  /// طلوع نهائي من اللعبة («اطلع وابدأ من جديد» أو طلوع المضيف): بيوقّف
+  /// البحث، بيقطع الاتصال، وبينسى الغرفة والمقعد والحالة — بس الاسم
+  /// بيضل للانضمام الجاي. بدونه اللاعب اللي بيرجع ينضم بيلاقي حاله بنفس
+  /// اللعبة القديمة (الاتصال كان بيضل مفتوح).
+  Future<void> leave() async {
+    _discovering = false;
+    _rooms = [];
+    _lastError = null;
+    await discovery.stop();
+    await client.leave();
+    notifyListeners();
+  }
+
   /// رجوع لنفس اللعبة بعد الانقطاع — بنفس الاسم والفريق ومعرّف اللاعب
   /// المحفوظ (المضيف بيعيد ربطنا بنفس مكاننا).
   Future<void> rejoin() async {
