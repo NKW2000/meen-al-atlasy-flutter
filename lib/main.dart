@@ -37,7 +37,9 @@ import 'ui/player/player_join_screen.dart';
 import 'ui/player/player_screen.dart';
 import 'ui/player/room_list_screen.dart';
 import 'ui/settings/bank_settings_screen.dart';
+import 'ui/show/game_over_screen.dart';
 import 'ui/show/round_opening.dart';
+import 'ui/show/scoreboard_screen.dart';
 import 'ui/theme.dart';
 
 /// وضع العرض — نفس فكرة `BuildConfig.DEBUG`/فليفر `demo` بالكوتلن، هون
@@ -169,10 +171,29 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
     case 'hostBoard':
       page = const _HostBoardRoute();
 
-    // شاشة النتيجة النهائية بمهمة لاحقة — مسار مؤقت حتى تشتغل شبكة
-    // التنقّل وتنعمل تجربة دخان (smoke test) عليها.
     case 'hostResult':
-      page = _placeholder('hostResult'); // TODO(task 11)
+      page = Builder(
+        builder: (context) {
+          final host = AppScope.of(context).host;
+          return ListenableBuilder(
+            listenable: host,
+            builder: (context, _) => GameOverScreen(
+              state: host.state,
+              onBackHome: () =>
+                  Navigator.of(context).popUntil((route) => route.settings.name == 'home'),
+              onBackToLobby: () {
+                // نفس الغرفة ونفس اللاعبين — بس نقاط وأسئلة جديدة،
+                // واللاعبين بيرجعوا يختاروا فرقهم من اللوبي.
+                unawaited(host.backToLobby());
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  'hostLobby',
+                  (route) => route.settings.name == 'home',
+                );
+              },
+            ),
+          );
+        },
+      );
 
     default:
       page = _placeholder(routeSettings.name ?? '?');
@@ -469,9 +490,9 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
           // TODO(task 12): GameCues / CountdownCues / PlayerMarkCues بتنركّب هون.
           final Widget body;
           if (live != null && live.gameOver) {
-            body = _placeholder('gameOver'); // TODO(task 11): GameOverScreen
+            body = GameOverScreen(state: live);
           } else if (live != null && live.phase == RoundPhase.scoreboard) {
-            body = _placeholder('scoreboard'); // TODO(task 11): ScoreboardScreen
+            body = ScoreboardScreen(state: live);
           } else {
             body = PlayerScreen(
               state: live,
@@ -575,7 +596,7 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
           final state = host.state;
           // TODO(task 12): GameCues / CountdownCues بتنركّب هون.
           final Widget body = state.phase == RoundPhase.scoreboard
-              ? _placeholder('scoreboard') // TODO(task 11): ScoreboardScreen
+              ? ScoreboardScreen(state: state, onContinue: host.nextRound)
               : HostGameBoardScreen(
                   state: state,
                   onCorrect: host.judgeCorrect,
