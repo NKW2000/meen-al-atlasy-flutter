@@ -23,9 +23,17 @@ Future<SettingsRepository> _repo(WidgetTester tester, String name) async {
   }))!;
 }
 
-Future<void> _walk(WidgetTester tester, SettingsRepository repo, Size physical) async {
+Future<void> _walk(
+  WidgetTester tester,
+  SettingsRepository repo,
+  Size physical, {
+  FakeViewPadding padding = FakeViewPadding.zero,
+}) async {
   tester.view.physicalSize = physical;
   tester.view.devicePixelRatio = 2;
+  // النوتش/أشرطة النظام — نفس اللي بيوصل من الجهاز عبر MediaQuery.padding.
+  tester.view.padding = padding;
+  tester.view.viewPadding = padding;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(feudApp(DemoGallery(settingsRepository: repo)));
   await tester.pump();
@@ -82,5 +90,27 @@ void main() {
   testWidgets('every demo screen renders in portrait', (tester) async {
     final repo = await _repo(tester, 'demo_gallery_port');
     await _walk(tester, repo, const Size(800, 1600));
+  });
+
+  // موبايل حقيقي بنوتش (٣٦٠×٨٠٠ منطقي): النوتش ٤٤ من فوق بالطولي ومن
+  // اليسار بالعرضي، وشريط التنقّل ٢٤ تحت — أضيق وأقصر من الشاشات اللي فوق.
+  testWidgets('every demo screen fits a notched phone in landscape', (tester) async {
+    final repo = await _repo(tester, 'demo_gallery_notch_land');
+    await _walk(
+      tester,
+      repo,
+      const Size(1600, 720),
+      padding: const FakeViewPadding(left: 88, right: 48),
+    );
+  });
+
+  testWidgets('every demo screen fits a notched phone in portrait', (tester) async {
+    final repo = await _repo(tester, 'demo_gallery_notch_port');
+    await _walk(
+      tester,
+      repo,
+      const Size(720, 1600),
+      padding: const FakeViewPadding(top: 88, bottom: 48),
+    );
   });
 }

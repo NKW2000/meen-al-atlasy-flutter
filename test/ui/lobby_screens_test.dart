@@ -1,4 +1,4 @@
-/// اختبارات شاشات Task 9: لوبي المضيف (IP + كود الغرفة، بوابة الحد
+/// اختبارات شاشات Task 9: لوبي المضيف (عنوان الواي فاي، بوابة الحد
 /// الأدنى، نقل اللاعبين)، شاشة اسم اللاعب، لستة الغرف (اختيار غرفة أو
 /// كتابة كود)، ولوبي اللاعب (فريقك + تبديل الفريق).
 library;
@@ -51,7 +51,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('HostLobbyScreen', () {
-    testWidgets('shows the Wi-Fi address and the room code', (tester) async {
+    testWidgets('shows the Wi-Fi address and no room code', (tester) async {
       await _pumpLandscape(
         tester,
         HostLobbyScreen(
@@ -68,7 +68,7 @@ void main() {
 
       expect(find.text('غرفة العيلة'), findsOneWidget);
       expect(find.text('الواي فاي: 192.168.43.1'), findsOneWidget);
-      expect(find.text('كود الغرفة: ١١٠٠٩'), findsOneWidget);
+      expect(find.textContaining('كود الغرفة'), findsNothing);
       expect(find.text('لازم الكل يكون على نفس الواي فاي أو نقطة اتصال المضيف'), findsOneWidget);
       expect(find.text('جاهزين — يلا نبلّش'), findsOneWidget);
     });
@@ -90,7 +90,7 @@ void main() {
       );
 
       expect(find.text('افتح الواي فاي أو نقطة الاتصال'), findsOneWidget);
-      expect(find.textContaining('كود الغرفة'), findsNothing);
+      expect(find.textContaining('الواي فاي:'), findsNothing);
       await tester.tap(find.text('بدء البث'));
       await tester.pump();
       expect(hosting, isFalse);
@@ -208,7 +208,6 @@ void main() {
           playerName: 'عبد الرحمن',
           rooms: rooms,
           onPick: (r) => picked = r,
-          onEnterCode: (_) {},
           onBack: () {},
         ),
       );
@@ -229,51 +228,12 @@ void main() {
           playerName: 'عبد الرحمن',
           rooms: const [],
           onPick: (_) {},
-          onEnterCode: (_) {},
           onBack: () {},
         ),
       );
 
       expect(find.text('عم ندوّر على غرف قريبة'), findsOneWidget);
       expect(find.text('لازم الكل يكون على نفس الواي فاي أو نقطة اتصال المضيف'), findsOneWidget);
-    });
-
-    testWidgets('typing a 5-digit code and tapping join sends the code', (tester) async {
-      String? code;
-      await _pumpPortrait(
-        tester,
-        RoomListScreen(
-          playerName: 'عبد الرحمن',
-          rooms: const [],
-          onPick: (_) {},
-          onEnterCode: (c) => code = c,
-          onBack: () {},
-        ),
-      );
-
-      await tester.enterText(find.byType(TextField), '11009');
-      await tester.pump();
-      await tester.tap(find.text('انضم'));
-      await tester.pump();
-      expect(code, '11009');
-    });
-
-    testWidgets('the code field only accepts digits and five of them', (tester) async {
-      await _pumpPortrait(
-        tester,
-        RoomListScreen(
-          playerName: 'عبد الرحمن',
-          rooms: const [],
-          onPick: (_) {},
-          onEnterCode: (_) {},
-          onBack: () {},
-        ),
-      );
-
-      await tester.enterText(find.byType(TextField), '1a2b3456');
-      await tester.pump();
-      final field = tester.widget<TextField>(find.byType(TextField));
-      expect(field.controller!.text, '12345');
     });
   });
 

@@ -243,10 +243,13 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
       ),
     );
 
+    // الوجهين بياخدوا قياس الخانة كلها — `matchParentSize()` بالكوتلن؛
+    // بدون هيك الوجه الأخضر بياخد حجم محتواه بس وبيطلع أصغر من الكريمي.
     return Stack(
+      fit: StackFit.expand,
       children: [
         greenFace,
-        Positioned.fill(child: creamFace),
+        creamFace,
       ],
     );
   }

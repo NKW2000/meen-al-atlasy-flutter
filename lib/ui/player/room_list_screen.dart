@@ -2,12 +2,11 @@
 /// ليفوت فيها. منضل ندوّر وقت اللستة مفتوحة، فالغرف بتزيد وبتنقص لحالها.
 ///
 /// منفّذ عن `RoomListScreen.kt` بالمشروع الأصلي (Kotlin). الإضافة الوحيدة
-/// (مواصفة الواي فاي §3): تحت اللستة خانة «أو اكتب كود الغرفة» للحالة
-/// اللي الشبكة فيها بتمنع البثّ (بعض نقاط الاتصال)، وسطر الشبكة.
+/// (مواصفة الواي فاي §3): سطر تحت اللستة بيقول إنه الكل لازم يكون على
+/// نفس الشبكة.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../network/room_discovery.dart';
 import '../arabic_numerals.dart';
@@ -22,7 +21,6 @@ class RoomListScreen extends StatelessWidget {
   final String playerName;
   final List<Room> rooms;
   final void Function(Room room) onPick;
-  final void Function(String code) onEnterCode;
   final VoidCallback onBack;
 
   const RoomListScreen({
@@ -30,7 +28,6 @@ class RoomListScreen extends StatelessWidget {
     required this.playerName,
     required this.rooms,
     required this.onPick,
-    required this.onEnterCode,
     required this.onBack,
   });
 
@@ -99,7 +96,7 @@ class RoomListScreen extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 8),
-            _CodeEntry(onEnterCode: onEnterCode),
+            _NetworkHint(),
           ],
         ),
       ),
@@ -158,7 +155,7 @@ class RoomListScreen extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 12),
-            _CodeEntry(onEnterCode: onEnterCode),
+            _NetworkHint(),
             const SizedBox(height: 12),
             PrimaryButton(text: 'رجوع', onClick: onBack, color: FeudColors.teal),
           ],
@@ -210,103 +207,6 @@ class _RoomRow extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// خانة كود الغرفة: أرقام بس، خمس خانات، وزر «انضم» — للحالة اللي
-/// البثّ فيها ما بيوصل (بعض نقاط الاتصال بتمنع البثّ بين الأجهزة).
-class _CodeEntry extends StatefulWidget {
-  final void Function(String code) onEnterCode;
-
-  const _CodeEntry({required this.onEnterCode});
-
-  @override
-  State<_CodeEntry> createState() => _CodeEntryState();
-}
-
-class _CodeEntryState extends State<_CodeEntry> {
-  final _controller = TextEditingController();
-
-  bool get _ready => _controller.text.length == 5;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    if (_ready) widget.onEnterCode(_controller.text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: BlockSkin(
-                color: FeudColors.cream,
-                border: 3,
-                shadow: 4,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  // TextField بدها Material فوقها — الشاشة بتوفّره لحالها.
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: TextField(
-                      controller: _controller,
-                      maxLength: 5,
-                      maxLines: 1,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _submit(),
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: FeudText.titleLarge(context).copyWith(color: FeudColors.ink),
-                      cursorColor: FeudColors.ink,
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        counterText: '',
-                        hintText: 'أو اكتب كود الغرفة',
-                        hintStyle: FeudText.titleMedium(context)
-                            .copyWith(color: FeudColors.ink.withValues(alpha: 0.35)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: 120,
-              child: PrimaryButton(
-                text: 'انضم',
-                onClick: _submit,
-                enabled: _ready,
-                color: FeudColors.lime,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          sameNetworkHint,
-          style: FeudText.labelMedium(context).copyWith(color: FeudColors.textMuted),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
     );
   }
 }
@@ -370,8 +270,8 @@ class _SearchingStateState extends State<_SearchingState> with SingleTickerProvi
           ),
           const SizedBox(height: 4),
           Text(
-            'خلّي المضيف يفتح اللعبة ويضغط «بدء البث»، أو اكتب كود الغرفة '
-            'اللي بيبيّن عنده',
+            'خلّي المضيف يفتح اللعبة ويضغط «بدء البث»، وتأكد إنه الاتنين '
+            'على نفس الواي فاي',
             textAlign: TextAlign.center,
             style: FeudText.bodyMedium(context).copyWith(color: FeudColors.textMuted),
           ),
@@ -379,4 +279,18 @@ class _SearchingStateState extends State<_SearchingState> with SingleTickerProvi
       ),
     );
   }
+}
+
+/// سطر الشبكة تحت اللستة — نفس النص اللي عند المضيف.
+class _NetworkHint extends StatelessWidget {
+  const _NetworkHint();
+
+  @override
+  Widget build(BuildContext context) => Text(
+        sameNetworkHint,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: FeudText.labelMedium(context).copyWith(color: FeudColors.textMuted),
+      );
 }

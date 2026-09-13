@@ -544,6 +544,27 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('the green face fills the slot exactly like the cream face', (tester) async {
+      Widget build(bool revealed) => SizedBox(
+            width: 300,
+            height: 56,
+            child: AnswerSlotRow(
+              position: 1,
+              answer: Answer(text: 'جواب', points: 40, revealed: revealed),
+              enabled: true,
+            ),
+          );
+
+      await pumpComponent(tester, build(false));
+      final creamSize = tester.getSize(find.byType(BlockSkin).last);
+      expect(creamSize, const Size(300, 56));
+
+      // خانة انكشفت قبل ما نشوفها (لاعب دخل بنص الجولة): خضرا مستقرة.
+      await pumpComponent(tester, build(true));
+      final greenSize = tester.getSize(find.byType(BlockSkin).first);
+      expect(greenSize, const Size(300, 56));
+    });
+
     testWidgets(
         'hidden-revealed-hidden-revealed cycle reuses one ticker without exceptions',
         (tester) async {

@@ -251,7 +251,6 @@ List<_DemoScreen> _demoScreens(
         playerName: 'عبد الرحمن',
         rooms: rooms,
         onPick: (_) {},
-        onEnterCode: (_) {},
         onBack: () {},
       ),
     ),

@@ -313,7 +313,7 @@ class _HostSettingsRouteState extends State<_HostSettingsRoute> {
 
 /// غلاف مسار لوبي المضيف: بيسمع [HostController]، وبيقرأ عنوان الواي
 /// فاي كل شوي (المضيف ممكن يشغّل الواي فاي أو نقطة الاتصال وهو عالشاشة)
-/// حتى يبيّن العنوان وكود الغرفة — نفس `HOST_SETUP` بـ`FeudNavGraph.kt`،
+/// حتى يبيّن العنوان — نفس `HOST_SETUP` بـ`FeudNavGraph.kt`،
 /// زائد الإضافة الوحيدة بالمواصفة (§3).
 class _HostLobbyRoute extends StatefulWidget {
   const _HostLobbyRoute();
@@ -423,7 +423,6 @@ class _PlayerRoomsRouteState extends State<_PlayerRoomsRoute> {
           playerName: player.pendingName ?? '',
           rooms: player.rooms,
           onPick: (room) => unawaited(player.enterRoom(room)),
-          onEnterCode: (code) => unawaited(player.enterCode(code)),
           onBack: () {
             unawaited(player.stopDiscovery());
             Navigator.of(context).pop();

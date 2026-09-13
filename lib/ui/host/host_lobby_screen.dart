@@ -2,8 +2,8 @@
 /// وسطر واحد فوق وسطر أزرار تحت.
 ///
 /// منفّذ عن `HostSetupScreen.kt` بالمشروع الأصلي (Kotlin). الإضافة
-/// الوحيدة (مواصفة الواي فاي §3): تحت اسم الغرفة عنوان الواي فاي وكود
-/// الغرفة — بديل «الأجهزة القريبة» — وسطر بيقول إنه الكل لازم يكون على
+/// الوحيدة (مواصفة الواي فاي §3): تحت اسم الغرفة عنوان الواي فاي —
+/// بديل «الأجهزة القريبة» — وسطر بيقول إنه الكل لازم يكون على
 /// نفس الشبكة.
 library;
 
@@ -12,10 +12,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../game/models.dart';
-import '../../network/room_code.dart';
-import '../arabic_numerals.dart';
 import '../components/buttons.dart';
 import '../components/seat_badge.dart';
+import '../arabic_numerals.dart';
 import '../components/stage.dart';
 import '../components/strikes.dart';
 import '../responsive.dart';
@@ -177,8 +176,8 @@ class HostLobbyScreen extends StatelessWidget {
   }
 }
 
-/// اسم الغرفة، وتحته عنوان الواي فاي وكود الغرفة بشارتين، وسطر الشبكة.
-/// بدون واي فاي: شارة وردية بتطلب تشغيله بدل الكود.
+/// اسم الغرفة، وجنبه عنوان الواي فاي بشارة، وسطر الشبكة.
+/// بدون واي فاي: شارة وردية بتطلب تشغيله بدل العنوان.
 class _NetworkStrip extends StatelessWidget {
   final String roomName;
   final InternetAddress? ip;
@@ -204,14 +203,12 @@ class _NetworkStrip extends StatelessWidget {
             ),
             if (ip == null)
               const Pill(text: noWifiHint, color: FeudColors.pink, textColor: FeudColors.cream)
-            else ...[
+            else
               Pill(
                 text: 'الواي فاي: ${ip.address}',
                 color: FeudColors.stageAlt,
                 textColor: FeudColors.cream,
               ),
-              Pill(text: 'كود الغرفة: ${encodeRoomCode(ip).arDigits()}', color: FeudColors.gold),
-            ],
           ],
         ),
         const SizedBox(height: 4),
