@@ -67,17 +67,31 @@ class RoomDiscovery {
       if (event != RawSocketEvent.read) return;
       final dg = sock.receive();
       if (dg == null) return;
-      try {
-        final j = jsonDecode(utf8.decode(dg.data)) as Map<String, dynamic>;
-        final room = Room(j['room'] as String, dg.address, j['port'] as int);
-        _seen[room.endpointId] = (room, DateTime.now());
-        _publish();
-      } catch (_) {
-        // حزمة مشوّهة — نتجاهلها.
-      }
+      handlePacket(dg.address, dg.data);
     });
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _publish());
+  }
+
+  /// حزمة منارة وصلت من [from]. عامة حتى تنختبر بدون مقابس.
+  ///
+  /// المفتاح هو معرّف جلسة المضيف (`id`) مش عنوان المرسل: نفس المضيف ممكن
+  /// يبثّ من أكتر من واجهة (واي فاي + نقطة اتصال) أو على أكتر من عنوان
+  /// بثّ، فبتوصل حزمه من عناوين مختلفة — وبدون المعرّف بتطلع الغرفة
+  /// مكرّرة. ومضيف أعاد الاستضافة (معرّف جديد، نفس العنوان والمنفذ) بياخد
+  /// مكان مدخله القديم بدل ما يظهر مرتين.
+  @visibleForTesting
+  void handlePacket(InternetAddress from, List<int> data) {
+    try {
+      final j = jsonDecode(utf8.decode(data)) as Map<String, dynamic>;
+      final room = Room(j['room'] as String, from, j['port'] as int);
+      final key = (j['id'] as String?) ?? room.endpointId;
+      _seen.removeWhere((k, entry) => k != key && entry.$1.endpointId == room.endpointId);
+      _seen[key] = (room, DateTime.now());
+      _publish();
+    } catch (_) {
+      // حزمة مشوّهة — نتجاهلها.
+    }
   }
 
   void _publish() {

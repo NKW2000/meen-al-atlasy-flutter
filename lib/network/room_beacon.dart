@@ -5,6 +5,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 /// منفذ UDP اللي بينبث عليه المضيف اسم الغرفة ورقم منفذ الـ WebSocket.
 const int roomBeaconPort = 47216;
@@ -28,10 +29,15 @@ class RoomBeacon {
     final sock = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
     sock.broadcastEnabled = true;
     _socket = sock;
+    // معرّف عشوائي لهالاستضافة — اللاعب بيميّز فيه نفس الغرفة لو وصلت حزمها
+    // من أكتر من عنوان (واي فاي + نقطة اتصال)، وبيميّز استضافة جديدة عن
+    // القديمة (شوف RoomDiscovery.handlePacket).
+    final sessionId = _newSessionId();
 
     Future<void> tick() async {
-      final payload =
-          utf8.encode(jsonEncode({'room': roomName, 'port': port, 'version': 1}));
+      final payload = utf8.encode(
+        jsonEncode({'room': roomName, 'port': port, 'version': 1, 'id': sessionId}),
+      );
       // البثّ العام + البثّ الموجّه لكل واجهة واي فاي/نقطة اتصال: على جهاز
       // عامل نقطة اتصال وبياناته الخلوية شغّالة، 255.255.255.255 ممكن يطلع
       // من واجهة الخلوي بدل الواي فاي، فما يوصل لولا حدا.
@@ -75,4 +81,10 @@ class RoomBeacon {
     _socket?.close();
     _socket = null;
   }
+}
+
+/// معرّف عشوائي (١٦ خانة ست عشرية) لكل تشغيل للمنارة.
+String _newSessionId() {
+  final random = Random.secure();
+  return List.generate(8, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
 }
