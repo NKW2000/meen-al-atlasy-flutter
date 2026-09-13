@@ -66,16 +66,16 @@ class PlayerBoard extends StatelessWidget {
                 columns: isPortrait(context) ? 1 : 2,
                 enabled: false,
                 revealHiddenText: false,
+                // بلوك الدور بنفس ارتفاع خانات الأجوبة بالضبط. نقاط الفرق
+                // مش هون — بتبيّن بشاشة النتيجة بين الجولات.
+                footer: TurnBlock(
+                  state: state,
+                  playerId: playerId,
+                  teamId: teamId,
+                  mark: mark,
+                  status: status,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            // نقاط الفرق مش هون — بتبيّن بشاشة النتيجة بين الجولات.
-            TurnBlock(
-              state: state,
-              playerId: playerId,
-              teamId: teamId,
-              mark: mark,
-              status: status,
             ),
           ],
         ),

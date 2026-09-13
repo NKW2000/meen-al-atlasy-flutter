@@ -146,15 +146,23 @@ class HostGameBoardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                PortraitBoardHeader(
-                  seconds: seconds,
-                  strikes: state.strikes,
-                  total: state.strikesToSteal,
-                ),
-                const SizedBox(height: 10),
-                // السؤال بسطر لحاله تحتهن بالوضعين؛ بالعرضي الأجوبة
-                // بتتوزّع على عمودين لأن العرض بيسمح.
-                questionCard,
+                // بالعرضي السؤال بين الوقت والأخطاء بنفس السطر (بيوفّر سطر
+                // كامل للأجوبة)؛ بالطولي بسطر لحاله تحتهن.
+                if (portrait) ...[
+                  PortraitBoardHeader(
+                    seconds: seconds,
+                    strikes: state.strikes,
+                    total: state.strikesToSteal,
+                  ),
+                  const SizedBox(height: 10),
+                  questionCard,
+                ] else
+                  PortraitBoardHeader(
+                    seconds: seconds,
+                    strikes: state.strikes,
+                    total: state.strikesToSteal,
+                    middle: questionCard,
+                  ),
                 const SizedBox(height: 10),
                 Expanded(
                   child: AnswerBoardColumns(
@@ -162,20 +170,18 @@ class HostGameBoardScreen extends StatelessWidget {
                     columns: portrait ? 1 : 2,
                     enabled: canJudge,
                     onCorrect: onCorrect,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // زر الحكم عاليسار وبلوك الدور عاليمين، نصّ ونصّ (طلب
-                // المستخدم). الصف مثبّت LTR حتى «يسار/يمين» ما تنقلب بالـ RTL.
-                IntrinsicHeight(
-                  child: Row(
-                    textDirection: TextDirection.ltr,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: judgeBar),
-                      const SizedBox(width: 10),
-                      Expanded(child: HostTurnChip(state: state)),
-                    ],
+                    // زر الحكم عاليسار وبلوك الدور عاليمين، نصّ ونصّ، بسطر
+                    // بنفس ارتفاع خانات الأجوبة بالضبط. الصف مثبّت LTR حتى
+                    // «يسار/يمين» ما تنقلب بالـ RTL.
+                    footer: Row(
+                      textDirection: TextDirection.ltr,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: judgeBar),
+                        const SizedBox(width: 10),
+                        Expanded(child: HostTurnChip(state: state)),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -200,6 +206,10 @@ class AnswerBoardColumns extends StatefulWidget {
   final bool revealHiddenText;
   final void Function(int index)? onCorrect;
 
+  /// سطر إضافي بعرض اللوح كله تحت الخانات (زر الحكم + بلوك الدور عند
+  /// المضيف) — بياخد نفس ارتفاع خانة الجواب بالضبط.
+  final Widget? footer;
+
   const AnswerBoardColumns({
     super.key,
     required this.answers,
@@ -207,6 +217,7 @@ class AnswerBoardColumns extends StatefulWidget {
     required this.enabled,
     this.revealHiddenText = true,
     this.onCorrect,
+    this.footer,
   });
 
   @override
@@ -240,37 +251,53 @@ class _AnswerBoardColumnsState extends State<AnswerBoardColumns> {
     final perColumn = (slots + widget.columns - 1) ~/ widget.columns;
     final delays = _revealDelays();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var column = 0; column < widget.columns; column++) ...[
-          if (column > 0) const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var row = 0; row < perColumn; row++) ...[
-                  if (row > 0) const SizedBox(height: 10),
-                  Expanded(
-                    child: () {
-                      final index = column * perColumn + row;
-                      if (index >= slots) return const SizedBox.shrink();
-                      return AnswerSlotRow(
-                        position: index + 1,
-                        answer: index < answers.length ? answers[index] : null,
-                        enabled: widget.enabled,
-                        revealHiddenText: widget.revealHiddenText,
-                        revealDelay: delays[index] ?? 0,
-                        onClick: widget.onCorrect == null ? null : () => widget.onCorrect!(index),
-                      );
-                    }(),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ],
+    final footer = widget.footer;
+    const gap = 10.0;
+
+    // كل الصفوف بنفس الارتفاع بالضبط — خانات الأجوبة والسطر الإضافي تحتها:
+    // منقسم الارتفاع المتاح على عدد الصفوف بعد ما نطرح الفراغات بيناتها.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = perColumn + (footer == null ? 0 : 1);
+        final rowHeight = ((constraints.maxHeight - gap * (rows - 1)) / rows).clamp(0.0, 1e6);
+
+        Widget slot(int index) {
+          if (index >= slots) return const SizedBox.shrink();
+          return AnswerSlotRow(
+            position: index + 1,
+            answer: index < answers.length ? answers[index] : null,
+            enabled: widget.enabled,
+            revealHiddenText: widget.revealHiddenText,
+            revealDelay: delays[index] ?? 0,
+            onClick: widget.onCorrect == null ? null : () => widget.onCorrect!(index),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var row = 0; row < perColumn; row++) ...[
+              if (row > 0) const SizedBox(height: gap),
+              SizedBox(
+                height: rowHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var column = 0; column < widget.columns; column++) ...[
+                      if (column > 0) const SizedBox(width: gap),
+                      Expanded(child: slot(column * perColumn + row)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            if (footer != null) ...[
+              const SizedBox(height: gap),
+              SizedBox(height: rowHeight, child: footer),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -282,11 +309,15 @@ class PortraitBoardHeader extends StatelessWidget {
   final int strikes;
   final int total;
 
+  /// بالعرضي: السؤال بين الوقت والأخطاء.
+  final Widget? middle;
+
   const PortraitBoardHeader({
     super.key,
     required this.seconds,
     required this.strikes,
     required this.total,
+    this.middle,
   });
 
   @override
@@ -311,7 +342,8 @@ class PortraitBoardHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Spacer(),
+        // بالعرضي السؤال بين الوقت والأخطاء؛ بالطولي النص فاضي (للنوتش).
+        if (middle != null) Expanded(child: middle!) else const Spacer(),
         const SizedBox(width: 12),
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -393,14 +425,19 @@ class FlatButton extends StatelessWidget {
       onTap: enabled ? onClick : null,
       child: BlockSkin(
         color: enabled ? color : color.withValues(alpha: 0.45),
+        // الزر بياخد ارتفاع الصف اللي انحط فيه (نفس خانة الجواب) — النص
+        // بالنص وبيصغر لو الصف أقصر منه بدل ما ينقص.
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Center(
-            child: Text(
-              text,
-              maxLines: 1,
-              style: FeudText.titleLarge(context).copyWith(
-                color: enabled ? textColor : textColor.withValues(alpha: 0.6),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                text,
+                maxLines: 1,
+                style: FeudText.titleLarge(context).copyWith(
+                  color: enabled ? textColor : textColor.withValues(alpha: 0.6),
+                ),
               ),
             ),
           ),
