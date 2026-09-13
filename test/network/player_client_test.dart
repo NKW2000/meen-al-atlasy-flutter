@@ -56,8 +56,13 @@ void main() {
 
       await client.rejoin();
 
+      // منستنى رسالة الانضمام التانية نفسها — مش عدد الأحداث: إغلاق الـ
+      // socket الأول بيولّد ClientDisconnected كمان، وترتيبه نسبةً للاتصال
+      // الجديد بيختلف بين الأنظمة (على لينكس بيوصل قبل الانضمام التاني).
       await Future.doWhile(() async {
-        if (received.length >= 4) return false;
+        if (received.whereType<ClientMessageReceived>().length >= 2) {
+          return false;
+        }
         await Future.delayed(const Duration(milliseconds: 20));
         return true;
       }).timeout(const Duration(seconds: 5));
