@@ -101,6 +101,9 @@ jobs:
             "artifacts/meen-al-atlasy-$version.apk"
           cp build/app/outputs/flutter-apk/app-demo-release.apk \
             "artifacts/meen-al-atlasy-$version-demo.apk"
+          # نسخ بأسماء ثابتة — الموقع بيوصّل عليهن عبر releases/latest/download/…
+          cp "artifacts/meen-al-atlasy-$version.apk" artifacts/meen-al-atlasy.apk
+          cp "artifacts/meen-al-atlasy-$version-demo.apk" artifacts/meen-al-atlasy-demo.apk
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Keep the APKs on the run
