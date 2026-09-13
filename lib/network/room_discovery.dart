@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'multicast_lock.dart';
 import 'room_beacon.dart';
 
 /// غرفة مكتشَفة على الشبكة — مضيف واحد بعنوانه ومنفذه.
@@ -51,6 +52,7 @@ class RoomDiscovery {
   /// بيبدأ الاستماع لبثّ الغرف.
   Future<void> start() async {
     if (_socket != null) return; // شغّال أصلاً — ما منعمل شي.
+    await acquireMulticastLock();
 
     final sock = await RawDatagramSocket.bind(
       bindAddress,
@@ -98,5 +100,6 @@ class RoomDiscovery {
     _socket = null;
     _seen.clear();
     rooms.value = const [];
+    await releaseMulticastLock();
   }
 }

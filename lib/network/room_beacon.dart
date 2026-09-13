@@ -29,18 +29,43 @@ class RoomBeacon {
     sock.broadcastEnabled = true;
     _socket = sock;
 
-    void tick() {
+    Future<void> tick() async {
       final payload =
           utf8.encode(jsonEncode({'room': roomName, 'port': port, 'version': 1}));
-      try {
-        sock.send(payload, target, roomBeaconPort);
-      } on SocketException {
-        // ما في شبكة مؤقتاً (مثلاً واجهة انقطعت) — منحاول تاني بالتيك الجاي.
+      // البثّ العام + البثّ الموجّه لكل واجهة واي فاي/نقطة اتصال: على جهاز
+      // عامل نقطة اتصال وبياناته الخلوية شغّالة، 255.255.255.255 ممكن يطلع
+      // من واجهة الخلوي بدل الواي فاي، فما يوصل لولا حدا.
+      final targets = <InternetAddress>{target, ...await _directedBroadcasts()};
+      for (final address in targets) {
+        try {
+          sock.send(payload, address, roomBeaconPort);
+        } on SocketException {
+          // ما في شبكة مؤقتاً (مثلاً واجهة انقطعت) — منحاول تاني بالتيك الجاي.
+        }
       }
     }
 
-    tick();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
+    unawaited(tick());
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => unawaited(tick()));
+  }
+
+  /// عناوين البثّ الموجّه (x.y.z.255 — نفترض /24، الشائع بالشبكات المنزلية
+  /// ونقاط الاتصال) لكل واجهة IPv4 غير loopback. بالاختبارات (الهدف
+  /// loopback) ما منبعت لغير الهدف نفسه.
+  Future<List<InternetAddress>> _directedBroadcasts() async {
+    if (target.isLoopback) return const [];
+    try {
+      final interfaces =
+          await NetworkInterface.list(type: InternetAddressType.IPv4, includeLinkLocal: false);
+      return [
+        for (final iface in interfaces)
+          for (final addr in iface.addresses)
+            if (!addr.isLoopback && !addr.address.startsWith('10.0.2.'))
+              InternetAddress('${addr.address.substring(0, addr.address.lastIndexOf('.'))}.255'),
+      ];
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// بيوقف البث ويسكّر المقبس.
