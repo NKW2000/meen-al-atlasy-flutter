@@ -2,9 +2,12 @@ name: Release
 
 # كل وسم بصيغة v* بيبني النسختين وبينشرهن كـ Release على GitHub.
 # وسم فيه شرطة (مثلاً v0.7.0-alpha.1) بينشر كنسخة تجريبية (pre-release).
+# كل دفعة على main بتشغّل الاختبارات والبناء بس (بدون نشر).
 # بتقدر كمان تشغّله بإيدك من تبويب Actions.
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -38,7 +41,22 @@ jobs:
         run: flutter pub get
 
       - name: Tests
-        run: flutter test
+        run: |
+          set -o pipefail
+          flutter test --reporter expanded 2>&1 | tee test.log
+
+      # الاختبار اللي فشل بيطلع كتعليق (annotation) على صفحة التشغيل —
+      # بيبيّن بدون ما تفتح السجل الكامل.
+      - name: Surface failing tests
+        if: failure()
+        run: |
+          grep -E '\[E\]' test.log | sed 's/^/::error title=Failing test::/' || true
+          {
+            echo '## Failing tests'
+            echo '```'
+            grep -A60 -E '\[E\]' test.log | head -400
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # الديمو أول: النسختين بيكتبوا على نفس الملف (app-release.apk)،
       # فمنبني الديمو ومنسمّيه قبل ما نبني اللعبة.
