@@ -122,7 +122,7 @@ class HostController extends ChangeNotifier {
       try {
         await beacon.start(roomName: roomName(), port: server.port);
       } catch (e) {
-        _lastError = e.toString();
+        _lastError = 'تعذّر بثّ الغرفة: $e';
       }
     }
     notifyListeners();
@@ -161,7 +161,7 @@ class HostController extends ChangeNotifier {
       _sub = server.events.listen(_onClientEvent);
       await beacon.start(roomName: roomName(), port: server.port);
     } catch (e) {
-      _lastError = e.toString();
+      _lastError = 'تعذّر بدء الاستضافة: $e';
       _advertising = false;
     }
     notifyListeners();

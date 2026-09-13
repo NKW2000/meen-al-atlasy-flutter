@@ -5,6 +5,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../theme.dart';
+
 class ErrorSnackbar extends StatefulWidget {
   /// الرسالة الحالية — `null` لما ما في خطأ.
   final String? message;
@@ -41,7 +43,23 @@ class _ErrorSnackbarState extends State<ErrorSnackbar> {
     // بعد الإطار الحالي — `ScaffoldMessenger` ما بيقبل عرض من جوّا build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(message)));
+      // بستايل اللعبة (وردي بحدّ حبري) بدل الرمادي الافتراضي — حتى ينقرا
+      // كرسالة خطأ مش كمستطيل غريب.
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: FeudColors.pink,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(FeudShape.block),
+            side: const BorderSide(color: FeudColors.ink, width: 3),
+          ),
+          duration: const Duration(seconds: 6),
+          content: Text(
+            message,
+            style: FeudText.bodyLarge(context).copyWith(color: FeudColors.cream),
+          ),
+        ),
+      );
       widget.onShown();
     });
   }

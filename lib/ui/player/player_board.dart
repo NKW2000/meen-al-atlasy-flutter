@@ -1,6 +1,6 @@
 /// لوح اللاعب: نفس لوح المضيف بالضبط — بس بدون السؤال وبدون زر الغلط —
-/// واللون هو الرسالة: أزرق ضغطت، أخضر صح، أحمر غلط. تحت بلوك واحد بيقول
-/// مين عم يلعب برقمه، وشو المطلوب منّك.
+/// بخلفية ثابتة بلون المسرح. تحت بلوك واحد بيقول مين عم يلعب برقمه، وشو
+/// المطلوب منّك (وحالتك: ضغطت/صح/غلط).
 ///
 /// منفّذ عن `PlayerBoard` + `TurnBlock` + `statusLine` بـ`PlayerScreen.kt`
 /// بالمشروع الأصلي (Kotlin).
@@ -38,12 +38,8 @@ class PlayerBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final target = switch (mark) {
-      PlayerMark.buzzed => FeudColors.team2,
-      PlayerMark.correct => FeudColors.team1,
-      PlayerMark.wrong => FeudColors.pink,
-      _ => FeudColors.stage,
-    };
+    // الخلفية ثابتة بلون المسرح (طلب المستخدم — بالكوتلن كانت تتلوّن حسب
+    // الحالة): ضغط/صح/غلط بيبيّنوا ببلوك الدور تحت، مش بلون الشاشة كلها.
     // بمرحلة اللعب دورك بينبّه: أي لمسة بتقول للمضيف إنك عم تجاوب.
     final canSignal = mark == PlayerMark.armed;
     final state = this.state;
@@ -61,9 +57,8 @@ class PlayerBoard extends StatelessWidget {
               onBuzz();
             }
           : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        color: target,
+      child: Container(
+        color: FeudColors.stage,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: SafeArea(
           child: Column(

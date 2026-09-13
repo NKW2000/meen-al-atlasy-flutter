@@ -521,11 +521,11 @@ void main() {
           );
 
       await pumpComponent(tester, build());
-      expect(tester.takeException(), isNull);
+      // الوجه الكريمي (الظاهر) عند اللاعب رقم الخانة بنصّه بس — الوجه الأخضر
       // الوجه الكريمي (الظاهر) بيبيّن «؟ ؟ ؟» — الوجه الأخضر دايماً عنده
       // النص الحقيقي بالشجرة (زي الكوتلن بالضبط) بس مخفي (Visibility) لحد
       // ما ينكشف، فهيك 'جواب' موجودة بس مش مرسومة.
-      expect(find.text('؟ ؟ ؟'), findsOneWidget);
+      expect(find.text('١'), findsNWidgets(2)); // رقم الوجه المخفي + شارة الوجه الأخضر
       expect(find.text('جواب'), findsOneWidget);
 
       answer = const Answer(text: 'جواب', points: 40, revealed: true);
@@ -537,8 +537,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
       expect(tester.takeException(), isNull);
 
-      // بعد ما تخلص الحركة: نص «؟ ؟ ؟» اختفى، ونص الجواب الحقيقي ظاهر.
-      expect(find.text('؟ ؟ ؟'), findsNothing);
+      // بعد ما تخلص الحركة: الوجه المخفي راح، ونص الجواب الحقيقي ظاهر.
+      expect(find.text('١'), findsNWidgets(2)); // شارتا الوجهين (الكريمي صار بيبيّن النص)
       expect(find.text('جواب'), findsWidgets);
 
       await tester.pumpWidget(const SizedBox());

@@ -176,7 +176,9 @@ void main() {
       await _pump(tester, screen(play), portrait: true);
       expect(find.byType(PlayerBoard), findsOneWidget);
       expect(find.text('دور ${play.player('a2')!.name}'), findsOneWidget);
-      expect(find.text('؟ ؟ ؟'), findsWidgets);
+      // الخانات المخفية عند اللاعب: رقم بنصّ البلوك وبس — بدون نص ولا نقاط.
+      expect(find.text(play.currentQuestion!.answers.first.text), findsOneWidget); // الوجه الأخضر المخفي بس
+      expect(find.text('٤'), findsWidgets);
     });
 
     testWidgets('a disconnected player sees the connection label', (tester) async {

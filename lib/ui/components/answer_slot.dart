@@ -226,17 +226,19 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: (!_revealed && widget.enabled) ? widget.onClick : null,
-              child: _SlotFace(
-                position: widget.position,
-                text: showText ? answer.text : '؟ ؟ ؟',
-                textColor: showText
-                    ? FeudColors.ink
-                    : FeudColors.ink.withValues(alpha: 0.35),
-                points: showText ? answer.points.ar() : null,
-                pointsColor: FeudColors.ink,
-                numberColor: FeudColors.gold,
-                numberInk: FeudColors.ink,
-              ),
+              child: showText
+                  ? _SlotFace(
+                      position: widget.position,
+                      text: answer.text,
+                      textColor: FeudColors.ink,
+                      points: answer.points.ar(),
+                      pointsColor: FeudColors.ink,
+                      numberColor: FeudColors.gold,
+                      numberInk: FeudColors.ink,
+                    )
+                  // عند اللاعب الخانة المخفية رقم بنصّها وبس — زي لوح
+                  // «فاميلي فيود» الحقيقي.
+                  : _HiddenFace(position: widget.position),
             ),
           ),
         ),
@@ -314,6 +316,34 @@ class _SlotFace extends StatelessWidget {
           ] else
             const Spacer(),
         ],
+      ),
+    );
+  }
+}
+
+/// الوجه المخفي عند اللاعب: رقم الخانة بشارة ذهبية بنصّ البلوك، بدون نص
+/// ولا نقاط — زي لوح «فاميلي فيود» الحقيقي.
+class _HiddenFace extends StatelessWidget {
+  final int position;
+
+  const _HiddenFace({required this.position});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: FeudColors.gold,
+          shape: BoxShape.circle,
+          border: Border.all(color: FeudColors.ink, width: 2),
+        ),
+        child: Text(
+          position.ar(),
+          style: FeudText.titleMedium(context).copyWith(color: FeudColors.ink),
+        ),
       ),
     );
   }
