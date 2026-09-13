@@ -27,6 +27,26 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "مين الأطليسي"
+    }
+
+    // نكهتين — نفس فكرة build type «demo» بالمشروع الأصلي (Kotlin)، بس
+    // فلاتر بتعرف product flavors بس (`flutter build apk --flavor …`):
+    //  - game: اللعبة نفسها.
+    //  - demo: بتفتح معرض الشاشات بدل اللعبة (مع `--dart-define=DEMO=true`)،
+    //    وبتتركّب جنب النسخة العادية (معرّف مختلف) فبتقدر تجرّب الواجهات
+    //    بجهاز واحد.
+    flavorDimensions += "variant"
+    productFlavors {
+        create("game") {
+            dimension = "variant"
+        }
+        create("demo") {
+            dimension = "variant"
+            applicationIdSuffix = ".demo"
+            versionNameSuffix = "-demo"
+            manifestPlaceholders["appLabel"] = "مين الأطليسي — ديمو"
+        }
     }
 
     buildTypes {

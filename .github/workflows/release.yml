@@ -58,28 +58,25 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # الديمو أول: النسختين بيكتبوا على نفس الملف (app-release.apk)،
-      # فمنبني الديمو ومنسمّيه قبل ما نبني اللعبة.
-      - name: Build the demo APK
-        run: flutter build apk --release --dart-define=DEMO=true
+      # نكهتين (android/app/build.gradle.kts): اللعبة، والديمو بمعرّف
+      # مختلف حتى يتركّب جنبها.
+      - name: Build the game APK
+        run: flutter build apk --release --flavor game
 
-      - name: Name the demo after the tag
+      - name: Build the demo APK
+        run: flutter build apk --release --flavor demo --dart-define=DEMO=true
+
+      - name: Name the artifacts after the tag
         id: names
         run: |
           version="${GITHUB_REF_NAME#v}"
           [ -z "$version" ] && version="$(date +%Y%m%d-%H%M)"
           mkdir -p artifacts
-          cp build/app/outputs/flutter-apk/app-release.apk \
+          cp build/app/outputs/flutter-apk/app-game-release.apk \
+            "artifacts/meen-al-atlasy-$version.apk"
+          cp build/app/outputs/flutter-apk/app-demo-release.apk \
             "artifacts/meen-al-atlasy-$version-demo.apk"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Build the game APK
-        run: flutter build apk --release
-
-      - name: Name the game after the tag
-        run: |
-          cp build/app/outputs/flutter-apk/app-release.apk \
-            "artifacts/meen-al-atlasy-${{ steps.names.outputs.version }}.apk"
 
       - name: Keep the APKs on the run
         uses: actions/upload-artifact@v4
