@@ -236,6 +236,21 @@ void main() {
     expect(controller.canBuzz(), isFalse);
   });
 
+  test('a failed connection reports the error and resumes searching so the room '
+      'list comes back without leaving the screen', () async {
+    transport.throwOnConnect = true;
+    controller.join('سامر');
+    expect(discovery.startCalls, equals(1));
+
+    await controller.enterRoom(Room('غرفة', InternetAddress.loopbackIPv4, 4000));
+
+    expect(controller.lastError, equals('تعذّر الاتصال بالمضيف'));
+    expect(controller.status, isNot(ConnectionStatus.connected));
+    // البحث رجع لحاله — مش لازم يطلع ويرجع يفوت حتى يشوف الغرف.
+    expect(controller.discovering, isTrue);
+    expect(discovery.startCalls, equals(2));
+  });
+
   test('leave disconnects and forgets the room, the seat and the game state — '
       'but keeps the name for the next join', () async {
     await connect();

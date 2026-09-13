@@ -92,7 +92,20 @@ class PlayerController extends ChangeNotifier {
   Future<void> startDiscovery() async {
     _discovering = true;
     notifyListeners();
-    await discovery.start();
+    // ربط مقبس البثّ ممكن يفشل مؤقتاً (المنفذ لسا محجوز من بحث سابق عم
+    // يتسكّر، أو الواي فاي عم يقوم) — منعيد المحاولة كم مرة بدل ما يضل
+    // البحث ميت والشاشة فاضية.
+    for (var attempt = 0; attempt < 5; attempt++) {
+      try {
+        await discovery.start();
+        return;
+      } catch (_) {
+        await Future.delayed(const Duration(milliseconds: 400));
+      }
+      if (!_discovering) return; // وقف البحث بهالأثناء
+    }
+    _lastError = 'تعذّر البحث عن الغرف — تأكد إنه الواي فاي شغّال';
+    notifyListeners();
   }
 
   Future<void> stopDiscovery() async {
@@ -143,6 +156,9 @@ class PlayerController extends ChangeNotifier {
       _lastError = null;
     } catch (_) {
       _lastError = 'تعذّر الاتصال بالمضيف';
+      // البحث وقف قبل الاتصال — منرجّعه حتى ترجع لستة الغرف لحالها بدل ما
+      // يضطر اللاعب يطلع من الشاشة ويرجع.
+      await startDiscovery();
     }
     notifyListeners();
   }

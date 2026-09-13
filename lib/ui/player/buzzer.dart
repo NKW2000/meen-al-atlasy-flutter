@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../feedback/game_feedback.dart';
 import '../responsive.dart';
 import '../theme.dart';
 
@@ -53,6 +54,8 @@ class _FullScreenBuzzerState extends State<FullScreenBuzzer> with TickerProvider
       behavior: HitTestBehavior.opaque,
       onTap: () {
         HapticFeedback.heavyImpact();
+        // الصوت فوراً عند الضغط — مش بعد ما يرجع رد المضيف.
+        GameFeedbackScope.maybeOf(context)?.play(Cue.buzz);
         widget.onBuzz();
       },
       child: Container(

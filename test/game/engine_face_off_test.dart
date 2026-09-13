@@ -6,6 +6,7 @@ import 'package:meen_al_atlasy/game/models.dart';
 import 'fixtures.dart';
 
 void main() {
+  faceOffClockTests();
   test('first buzz locks the other team out', () {
     final engine = GameEngine(freshState());
     engine.buzzPodium(TeamId.team2);
@@ -192,5 +193,93 @@ void main() {
 
     expect(result.phase, RoundPhase.faceOff);
     expect(result.controllingTeam, isNull);
+  });
+}
+
+// ---- تايمر المواجهة (إضافة عن الأصل: بالكوتلن ما في عدّاد قبل الضغط).
+
+void faceOffClockTests() {
+  test('starting the game arms the face-off clock from the setting', () {
+    final engine = GameEngine(freshState().copyWith(faceOffLimitSeconds: 7));
+    final result = engine.apply(const StartGame());
+
+    expect(result.phase, RoundPhase.faceOff);
+    expect(result.answerSecondsLeft, 7);
+  });
+
+  test('the next round arms the face-off clock again', () {
+    final engine = GameEngine(freshState().copyWith(faceOffLimitSeconds: 7));
+    engine.apply(const StartGame());
+    // الفريق الأول بيكسب المواجهة بأعلى جواب وبيكشف الباقي ← نهاية الجولة.
+    engine.buzzPodium(TeamId.team1);
+    engine.correct(0);
+    engine.choosePlay();
+    for (var i = 1; i < 4; i++) {
+      engine.correct(i);
+    }
+    expect(engine.state.phase, RoundPhase.roundEnd);
+    engine.apply(const NextRound()); // ← لوحة النتيجة
+    final result = engine.apply(const NextRound()); // ← الجولة الجاية
+
+    expect(result.phase, RoundPhase.faceOff);
+    expect(result.answerSecondsLeft, 7);
+  });
+
+  test('a replaced question re-arms the face-off clock', () {
+    final engine = GameEngine(freshState().copyWith(faceOffLimitSeconds: 7));
+    engine.apply(const StartGame());
+    for (var i = 0; i < 3; i++) {
+      engine.apply(const Tick());
+    }
+    expect(engine.state.answerSecondsLeft, 4);
+
+    final result = engine.apply(ReplaceQuestion(board('q9')));
+    expect(result.answerSecondsLeft, 7);
+  });
+
+  test('a buzz freezes the face-off clock; a wrong answer hands the opponent '
+      'the full answer time', () {
+    final engine = GameEngine(freshState().copyWith(faceOffLimitSeconds: 7));
+    engine.apply(const StartGame());
+    engine.apply(const Tick());
+    engine.buzzPodium(TeamId.team1);
+    engine.apply(const Tick());
+    engine.apply(const Tick());
+    expect(engine.state.answerSecondsLeft, 6); // واقف على اللي بقي
+
+    final result = engine.wrong();
+    expect(result.phase, RoundPhase.faceOffSecond);
+    expect(result.answerSecondsLeft, result.answerLimitSeconds);
+  });
+
+  test('when the face-off clock runs out with no buzz, the host is offered a '
+      'question swap and the buzzer stays open', () {
+    final engine = GameEngine(freshState().copyWith(faceOffLimitSeconds: 2));
+    engine.apply(const StartGame());
+    engine.apply(const Tick());
+    final result = engine.apply(const Tick());
+
+    expect(result.answerSecondsLeft, 0);
+    expect(result.faceOffFailed, isTrue);
+    expect(result.phase, RoundPhase.faceOff);
+    expect(result.buzzState, BuzzState.open);
+    expect(result.strikes, 0);
+    expect(result.wrongPlayers, isEmpty);
+
+    // الزر لسا شغّال — اللعبة ما علقت.
+    final buzzed = engine.buzzPodium(TeamId.team2);
+    expect(buzzed.buzzedPlayerId, isNotNull);
+  });
+
+  test('both podium players wrong reopens the buzzer with the clock armed', () {
+    final engine = GameEngine(freshState().copyWith(faceOffLimitSeconds: 7));
+    engine.apply(const StartGame());
+    engine.buzzPodium(TeamId.team1);
+    engine.wrong();
+    final result = engine.wrong();
+
+    expect(result.faceOffFailed, isTrue);
+    expect(result.buzzState, BuzzState.open);
+    expect(result.answerSecondsLeft, 7);
   });
 }

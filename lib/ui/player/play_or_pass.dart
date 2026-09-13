@@ -9,8 +9,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../game/models.dart';
-import '../arabic_numerals.dart';
-import '../components/buttons.dart';
 import '../theme.dart';
 
 /// ألوان شاشة «العب / تمرير» زي ما هي بملف التصميم.
@@ -106,8 +104,6 @@ class _PlayOrPassScreenState extends State<PlayOrPassScreen> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final state = widget.state;
-    final other = state.teams[widget.teamId?.other]?.name ?? 'الفريق التاني';
     final away = _entered && !_opened;
 
     return LayoutBuilder(
@@ -128,35 +124,7 @@ class _PlayOrPassScreenState extends State<PlayOrPassScreen> with TickerProvider
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // اللي تحت البابين: بيبيّن لما ينفتحوا بعد الاختيار.
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Pill(
-                      text: 'الجولة ${(state.currentQuestionIndex + 1).ar()}',
-                      color: FeudColors.stageAlt,
-                      textColor: FeudColors.textMuted,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'كسبتوا المواجهة!',
-                      textAlign: TextAlign.center,
-                      style: FeudText.headlineMedium(context).copyWith(color: FeudColors.cream),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _opened
-                          ? 'اختيارك انحفظ، استنى باقي الفريق.'
-                          : 'تلعبوا اللوح ولا تمرّروه لـ$other؟',
-                      textAlign: TextAlign.center,
-                      style: FeudText.bodyLarge(context).copyWith(color: FeudColors.textSoft),
-                    ),
-                  ],
-                ),
-              ),
+              // ورا البابين خلفية سادة بس (طلب المستخدم) — بدون نصوص.
 
               // شريط «تمرير» الأحمر فوق.
               AnimatedPositioned(

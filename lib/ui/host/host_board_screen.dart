@@ -125,28 +125,23 @@ class HostGameBoardScreen extends StatelessWidget {
       children: [
         StageBackground(
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          // الوقت والأخطاء بالزاويتين الفوقانيتين بمستوى النوتش نفسه (بدون
+          // هامش من فوق) — النوتش بالنص والزاويتين فاضيتين، فمنستغلّهن.
+          // الباقي جوّا المنطقة الآمنة.
           child: SafeArea(
+            top: false,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // نفس التصميم بالوضعين: الفرق الوحيد إنه بالعرضي الأجوبة
-                // بتتوزّع على عمودين لأن العرض بيسمح، والسؤال بينحط بين
-                // الوقت والأخطاء — بيوفّر سطر كامل للأجوبة.
-                if (portrait) ...[
-                  PortraitBoardHeader(
-                    seconds: seconds,
-                    strikes: state.strikes,
-                    total: state.strikesToSteal,
-                  ),
-                  const SizedBox(height: 10),
-                  questionCard,
-                ] else
-                  PortraitBoardHeader(
-                    seconds: seconds,
-                    strikes: state.strikes,
-                    total: state.strikesToSteal,
-                    middle: questionCard,
-                  ),
+                PortraitBoardHeader(
+                  seconds: seconds,
+                  strikes: state.strikes,
+                  total: state.strikesToSteal,
+                ),
+                const SizedBox(height: 10),
+                // السؤال بسطر لحاله تحتهن بالوضعين؛ بالعرضي الأجوبة
+                // بتتوزّع على عمودين لأن العرض بيسمح.
+                questionCard,
                 const SizedBox(height: 10),
                 Expanded(
                   child: AnswerBoardColumns(
@@ -256,19 +251,17 @@ class _AnswerBoardColumnsState extends State<AnswerBoardColumns> {
 }
 
 /// سطر الوقت والأخطاء: الوقت عاليمين والأخطاء عالشمال — نفس الشريط عند
-/// المضيف وعند اللاعب. بالعرضي بينحط السؤال بين الوقت والأخطاء.
+/// المضيف وعند اللاعب — بالزاويتين الفوقانيتين، والنص بيناتهن فاضي (للنوتش).
 class PortraitBoardHeader extends StatelessWidget {
   final int seconds;
   final int strikes;
   final int total;
-  final Widget? middle;
 
   const PortraitBoardHeader({
     super.key,
     required this.seconds,
     required this.strikes,
     required this.total,
-    this.middle,
   });
 
   @override
@@ -289,17 +282,11 @@ class PortraitBoardHeader extends StatelessWidget {
                 seconds > 0 ? seconds.ar() : '—',
                 style: FeudText.headlineSmall(context).copyWith(color: FeudColors.gold),
               ),
-              const SizedBox(width: 8),
-              Text(
-                'ثانية',
-                style: FeudText.labelMedium(context)
-                    .copyWith(color: FeudColors.gold.withValues(alpha: 0.8)),
-              ),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        if (middle != null) Expanded(child: middle!) else const Spacer(),
+        const Spacer(),
         const SizedBox(width: 12),
         Row(
           mainAxisSize: MainAxisSize.min,

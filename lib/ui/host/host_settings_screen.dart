@@ -270,6 +270,21 @@ class _DesignHostSettings extends StatelessWidget {
                         _SectionLabel('الوقت والأخطاء'),
                         const SizedBox(height: 12),
                         _SettingRow(
+                          label: 'ثواني المواجهة (قبل الضغط)',
+                          value: settings.faceOffSeconds.ar(),
+                          onMinus: () => onSettingsChange(settings.copyWith(
+                            faceOffSeconds: (settings.faceOffSeconds - 1)
+                                .clamp(GameSettings.minFaceOffSeconds, GameSettings.maxFaceOffSeconds)
+                                .toInt(),
+                          )),
+                          onPlus: () => onSettingsChange(settings.copyWith(
+                            faceOffSeconds: (settings.faceOffSeconds + 1)
+                                .clamp(GameSettings.minFaceOffSeconds, GameSettings.maxFaceOffSeconds)
+                                .toInt(),
+                          )),
+                        ),
+                        const SizedBox(height: 12),
+                        _SettingRow(
                           label: 'ثواني الجواب',
                           value: settings.answerSeconds.ar(),
                           onMinus: () => onSettingsChange(settings.copyWith(

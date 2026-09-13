@@ -32,7 +32,7 @@ void main() {
         await waitForValue(
           discovery.rooms,
           (rooms) => rooms.every((r) => r.name != 'غرفة الاختبار'),
-          timeout: const Duration(seconds: 6),
+          timeout: const Duration(seconds: 9),
         );
       } finally {
         await beacon.stop();
@@ -42,6 +42,6 @@ void main() {
     skip: Platform.environment['CI'] == 'true'
         ? 'UDP loopback broadcast may be blocked on CI runners'
         : false,
-    timeout: const Timeout(Duration(seconds: 15)),
+    timeout: const Timeout(Duration(seconds: 20)),
   );
 }

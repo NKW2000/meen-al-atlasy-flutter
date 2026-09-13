@@ -57,15 +57,15 @@ Future<void> main() async {
   // بحجم غير محدود بيدفش كل اللي حوله برّا الشاشة وما بيقول شي. بدله:
   // بلوك وردي صغير فيه نص الخطأ — بينقرا وبينصوّر وبينبعت.
   ErrorWidget.builder = (details) => Material(
-        color: FeudColors.pink,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            'خطأ بالعرض: ${details.exception}',
-            style: const TextStyle(color: FeudColors.cream, fontSize: 12),
-          ),
-        ),
-      );
+    color: FeudColors.pink,
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Text(
+        'خطأ بالعرض: ${details.exception}',
+        style: const TextStyle(color: FeudColors.cream, fontSize: 12),
+      ),
+    ),
+  );
 
   // لعبة على تلفزيون الصالون: بدون شريط حالة ولا شريط تنقّل — بيرجعوا
   // مؤقتاً بسحبة من الحافة وبيختفوا لحالهم (نفس `goFullScreen()` بكوتلن).
@@ -535,48 +535,42 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
             );
           }
 
-          // الصوت والاهتزاز: أحداث اللعبة، دقّات آخر خمس ثواني، وصوت البزر
-          // بالمواجهة بس — نفس `GameStateCues`/`CountdownCues`/`PlayerMarkCues`.
+          // الصوت والاهتزاز: أحداث اللعبة ودقّات آخر خمس ثواني (صوت الضغطة
+          // بيطلع من الزر/اللوح نفسه لحظة الضغط، مش من الحالة الراجعة).
           return GameCues(
             state: live,
             child: CountdownCues(
               seconds: live == null ? 0 : math.max(live.answerSecondsLeft, live.choiceSecondsLeft),
-              child: PlayerMarkCues(
-                mark: mark,
-                faceOff:
-                    live?.phase == RoundPhase.faceOff || live?.phase == RoundPhase.faceOffSecond,
-                child: ErrorSnackbar(
-                  message: player.lastError,
-                  onShown: player.dismissError,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      body,
-                      // نفس افتتاحية الجولة اللي عند المضيف — بتطلع فوق الزر.
-                      RoundOpeningOverlay(state: live),
-                      if (_showLeft)
-                        ConfirmDialog(
-                          title: player.status == ConnectionStatus.disconnected
-                              ? 'انقطعت عن اللعبة'
-                              : 'تطلع من اللعبة؟',
-                          message: 'بتقدر ترجع لنفس اللعبة، أو تطلع وتبلّش من جديد.',
-                          confirmText: 'ارجع لللعبة',
-                          dismissText: 'اطلع وابدأ من جديد',
-                          confirmColor: FeudColors.lime,
-                          onConfirm: () {
-                            setState(() => _showLeft = false);
-                            unawaited(player.rejoin());
-                          },
-                          onDismiss: () {
-                            setState(() => _showLeft = false);
-                            // طلوع نهائي: بدون اتصال ولا حالة قديمة للانضمام الجاي.
-                            unawaited(player.leave());
-                            Navigator.of(context)
-                                .popUntil((route) => route.settings.name == 'home');
-                          },
-                        ),
-                    ],
-                  ),
+              child: ErrorSnackbar(
+                message: player.lastError,
+                onShown: player.dismissError,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    body,
+                    // نفس افتتاحية الجولة اللي عند المضيف — بتطلع فوق الزر.
+                    RoundOpeningOverlay(state: live),
+                    if (_showLeft)
+                      ConfirmDialog(
+                        title: player.status == ConnectionStatus.disconnected
+                            ? 'انقطعت عن اللعبة'
+                            : 'تطلع من اللعبة؟',
+                        message: 'بتقدر ترجع لنفس اللعبة، أو تطلع وتبلّش من جديد.',
+                        confirmText: 'ارجع لللعبة',
+                        dismissText: 'اطلع وابدأ من جديد',
+                        confirmColor: FeudColors.lime,
+                        onConfirm: () {
+                          setState(() => _showLeft = false);
+                          unawaited(player.rejoin());
+                        },
+                        onDismiss: () {
+                          setState(() => _showLeft = false);
+                          // طلوع نهائي: بدون اتصال ولا حالة قديمة للانضمام الجاي.
+                          unawaited(player.leave());
+                          Navigator.of(context).popUntil((route) => route.settings.name == 'home');
+                        },
+                      ),
+                  ],
                 ),
               ),
             ),

@@ -47,6 +47,7 @@ class SettingsRepository {
   static const _keyMultipliers = 'multipliers';
   static const _keyStrikes = 'strikes';
   static const _keyAnswerSeconds = 'answer_seconds';
+  static const _keyFaceOffSeconds = 'face_off_seconds';
   static const _keyChoiceSeconds = 'choice_seconds';
   static const _keyRoomName = 'room_name';
   static const _keyMinAnswers = 'min_answers';
@@ -69,6 +70,8 @@ class SettingsRepository {
       multipliers:
           multipliers.isNotEmpty ? multipliers : GameSettings.defaultMultipliers,
       strikesToSteal: _prefs.getInt(_keyStrikes) ?? GameSettings.defaultStrikes,
+      faceOffSeconds:
+          _prefs.getInt(_keyFaceOffSeconds) ?? GameSettings.defaultFaceOffSeconds,
       answerSeconds:
           _prefs.getInt(_keyAnswerSeconds) ?? GameSettings.defaultAnswerSeconds,
       choiceSeconds:
@@ -91,6 +94,7 @@ class SettingsRepository {
     await _prefs.setString(_keyMultipliers, safe.multipliers.join(','));
     await _prefs.setInt(_keyStrikes, safe.strikesToSteal);
     await _prefs.setInt(_keyAnswerSeconds, safe.answerSeconds);
+    await _prefs.setInt(_keyFaceOffSeconds, safe.faceOffSeconds);
     await _prefs.setInt(_keyChoiceSeconds, safe.choiceSeconds);
     await _prefs.setString(_keyRoomName, safe.roomName);
     await _prefs.setInt(_keyMinAnswers, safe.minAnswers);
@@ -174,6 +178,7 @@ class SettingsRepository {
       multipliers: settings.multipliersForRounds(),
       strikesToSteal: settings.strikesToSteal,
       answerLimitSeconds: settings.answerSeconds,
+      faceOffLimitSeconds: settings.faceOffSeconds,
       choiceLimitSeconds: settings.choiceSeconds,
       teams: {
         for (final id in TeamId.values) id: TeamState(id: id, name: settings.teamName(id)),
@@ -223,6 +228,7 @@ class SettingsRepository {
       multipliers: settings.multipliersForRounds(),
       strikesToSteal: settings.strikesToSteal,
       answerLimitSeconds: settings.answerSeconds,
+      faceOffLimitSeconds: settings.faceOffSeconds,
       choiceLimitSeconds: settings.choiceSeconds,
       teams: {
         for (final id in TeamId.values) id: TeamState(id: id, name: settings.teamName(id)),

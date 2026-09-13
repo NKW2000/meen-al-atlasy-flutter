@@ -41,7 +41,11 @@ class GameEngine {
       PlayerJoined() => _handlePlayerJoined(event),
       PlayerLeft() => _handlePlayerLeft(event),
       PlayerMoved() => _handlePlayerMoved(event),
-      StartGame() => _state.copyWith(matchStarted: true),
+      // أول مواجهة: الزر مفتوح من هلق — منشغّل عدّاد المواجهة.
+      StartGame() => _state.copyWith(
+          matchStarted: true,
+          answerSecondsLeft: _state.faceOffLimitSeconds,
+        ),
       ReplaceQuestion() => _handleReplaceQuestion(event.question),
       Tick() => _handleTick(),
       EndGame() => _state.copyWith(
@@ -122,7 +126,7 @@ class GameEngine {
       pot: 0,
       wrongPlayers: const {},
       correctPlayers: const {},
-      answerSecondsLeft: 0,
+      answerSecondsLeft: _state.faceOffLimitSeconds, // الزر مفتوح — عدّاد المواجهة
       choiceSecondsLeft: 0,
       lastAward: null,
       roundWinner: null,
@@ -267,7 +271,7 @@ class GameEngine {
           buzzState: BuzzState.open,
           faceOffTeam: null,
           buzzedPlayerId: null,
-          answerSecondsLeft: 0,
+          answerSecondsLeft: _state.faceOffLimitSeconds,
           wrongPlayers: const {},
           // الدور بينتقل للرقم اللي بعده، والمضيف بيبدّل السؤال.
           faceOffSeat: marked.nextSeat(),
@@ -315,6 +319,11 @@ class GameEngine {
         return _state.copyWith(answerSecondsLeft: left);
       }
       _state = _state.copyWith(answerSecondsLeft: 0);
+      // عدّاد المواجهة خلص وما حدا ضغط: مش غلط على حدا — بس منبيّن
+      // للمضيف «بدّل السؤال»، والزر بيضل مفتوح حتى ما تعلق اللعبة.
+      if (_state.phase == RoundPhase.faceOff && _state.buzzedPlayerId == null) {
+        return _state.copyWith(faceOffFailed: true);
+      }
       return _handleWrong();
     }
 
@@ -361,6 +370,8 @@ class GameEngine {
       faceOffWinner: null,
       faceOffFailed: false,
       faceOffSeat: _state.nextSeat(),
+      // الزر مفتوح — عدّاد المواجهة.
+      answerSecondsLeft: _state.faceOffLimitSeconds,
     );
   }
 

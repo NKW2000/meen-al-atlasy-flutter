@@ -32,7 +32,7 @@ class Room {
 }
 
 /// مدة بقاء الغرفة "حيّة" بدون بث جديد قبل ما تُعتبر منتهية.
-const Duration _roomTtl = Duration(seconds: 4);
+const Duration _roomTtl = Duration(seconds: 6);
 
 /// بيسمع بثّ [RoomBeacon] عبر UDP، ويحدّث [rooms] بالغرف الظاهرة حالياً —
 /// الغرف اللي ما وصلها بث جديد خلال [_roomTtl] بتنشال تلقائياً.
