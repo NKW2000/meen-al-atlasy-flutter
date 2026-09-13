@@ -18,6 +18,11 @@ int _revealedCount(GameState? state) =>
 List<Cue> cuesFor(GameState? previous, GameState next) {
   if (previous == null) return const [];
   final award = next.lastAward;
+  // السرقة (طلب المستخدم): غلط الفريق التاني بيسمع صوت الغلط تبع المواجهة،
+  // وصحّه صوت كشف الجواب — مش صوت الفوز.
+  if (previous.phase == RoundPhase.steal && award != null && award != previous.lastAward) {
+    return award.stolen ? const [Cue.reveal] : const [Cue.wrong];
+  }
   // نهاية الجولة بتكشف اللوح كله، فبنعلن الفوز مش كل خانة.
   if (award != null && award != previous.lastAward) return const [Cue.win];
   if (next.strikes > previous.strikes) return [strikeCue(next.strikes)];

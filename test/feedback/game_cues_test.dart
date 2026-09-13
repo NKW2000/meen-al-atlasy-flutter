@@ -20,6 +20,7 @@ GameState _reveal(GameState s, int count) => s.copyWith(
     );
 
 void main() {
+  stealCueTests();
   final base = freshState();
 
   test('a new award plays the win cue and nothing else', () {
@@ -69,5 +70,28 @@ void main() {
     expect(strikeCue(2), Cue.strike2);
     expect(strikeCue(3), Cue.strike3);
     expect(strikeCue(9), Cue.strike3);
+  });
+}
+
+// ---- السرقة (طلب المستخدم): غلط الفريق التاني = صوت الغلط تبع المواجهة،
+// وصحّه = صوت كشف الجواب — مش صوت الفوز ولا صوت X.
+void stealCueTests() {
+  final base = freshState().copyWith(phase: RoundPhase.steal, strikes: 3);
+
+  test('a failed steal plays the wrong sound, not win or a strike', () {
+    final next = base.copyWith(
+      phase: RoundPhase.roundEnd,
+      wrongTicks: 1,
+      lastAward: const Award(teamId: TeamId.team1, points: 100),
+    );
+    expect(cuesFor(base, next), [Cue.wrong]);
+  });
+
+  test('a successful steal plays the reveal sound', () {
+    final next = _reveal(base, 1).copyWith(
+      phase: RoundPhase.roundEnd,
+      lastAward: const Award(teamId: TeamId.team2, points: 100, stolen: true),
+    );
+    expect(cuesFor(base, next), [Cue.reveal]);
   });
 }
