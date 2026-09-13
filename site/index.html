@@ -50,6 +50,13 @@
   .phone.live iframe { opacity: 1; }
   .phone.live img { opacity: 0; }
 
+  /* «من جوّا اللعبة»: تلات أعمدة متساوية بتملّي العرض كله، الإطارات بنفس
+     القياس وبنفس المسافة بيناتهن — بدون فراغ على جنب. عمود واحد عالموبايل. */
+  .screens-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; justify-items: center; }
+  .screen-card { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 12px; }
+  .screen-card .phone { width: 100%; }
+  @media (max-width: 760px) { .screens-grid { grid-template-columns: 1fr; gap: 28px; } .screen-card { max-width: 300px; } }
+
   /* الرأس على الموبايل: العلامة بتصغر ووصلات النص بتختفي، بيضل زر التحميل. */
   .brand { font-size: clamp(22px, 6vw, 30px); }
   @media (max-width: 640px) { .nav-text { display: none; } }
@@ -170,23 +177,23 @@
       <div data-reveal style="font: 800 clamp(28px, 4vw, 42px)/1.2 'Baloo Bhaijaan 2'; color: #FFD23F">من جوّا اللعبة</div>
       <!-- لقطات حقيقية من التطبيق (نفس الويدجتات ونفس الخطوط) — شاشات
            معرض الديمو ٧ و٩ و١١. -->
-      <div style="display: flex; flex-wrap: wrap; gap: 22px; margin-top: 34px; align-items: flex-start">
+      <div class="screens-grid" style="margin-top: 34px">
 
-        <div data-reveal style="flex: 1 1 230px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: 12px">
+        <div class="screen-card" data-reveal>
           <div class="phone" data-app="07">
             <img src="screens/07-host-board-portrait.png" alt="لوح المضيف بمرحلة اللعب" width="1080" height="2340" loading="lazy">
           </div>
           <div style="font: 700 14px 'Tajawal'; color: #C9B6EE">لوح المضيف — السؤال والأجوبة</div>
         </div>
 
-        <div data-reveal style="--d: .12s; flex: 1 1 230px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: 12px">
+        <div class="screen-card" data-reveal style="--d: .12s">
           <div class="phone" data-app="09">
             <img src="screens/09-round-intro-portrait.png" alt="بداية الجولة: اسم الجولة والمضاعف" width="1080" height="2340" loading="lazy">
           </div>
           <div style="font: 700 14px 'Tajawal'; color: #C9B6EE">بداية الجولة</div>
         </div>
 
-        <div data-reveal style="--d: .24s; flex: 1 1 230px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: 12px">
+        <div class="screen-card" data-reveal style="--d: .24s">
           <div class="phone" data-app="11">
             <img src="screens/11-scoreboard-portrait.png" alt="النتيجة بين الجولات: لوح لكل فريق ولافتة المتقدّم" width="1080" height="2340" loading="lazy">
           </div>
