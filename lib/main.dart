@@ -53,6 +53,20 @@ const bool demo = bool.fromEnvironment('DEMO');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // أي ويدجت بينفجر ببنائه بوضع الإصدار بينرسم افتراضياً كمستطيل رمادي
+  // بحجم غير محدود بيدفش كل اللي حوله برّا الشاشة وما بيقول شي. بدله:
+  // بلوك وردي صغير فيه نص الخطأ — بينقرا وبينصوّر وبينبعت.
+  ErrorWidget.builder = (details) => Material(
+        color: FeudColors.pink,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            'خطأ بالعرض: ${details.exception}',
+            style: const TextStyle(color: FeudColors.cream, fontSize: 12),
+          ),
+        ),
+      );
+
   // لعبة على تلفزيون الصالون: بدون شريط حالة ولا شريط تنقّل — بيرجعوا
   // مؤقتاً بسحبة من الحافة وبيختفوا لحالهم (نفس `goFullScreen()` بكوتلن).
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);

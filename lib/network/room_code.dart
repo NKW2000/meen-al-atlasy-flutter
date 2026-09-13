@@ -1,49 +1,31 @@
-/// كود الغرفة — خمسة أرقام من عنوان IP المضيف.
+/// كود الغرفة — خمسة أرقام من عنوان IP المضيف. (ما عاد يبيّن بالواجهة —
+/// بقي للمتحكّم والاختبارات.)
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
 /// تشفير عنوان المضيف كرمز غرفة: الثالث*256+الرابع، مع تعديد الأصفار إلى 5 أرقام.
+/// من بايتات العنوان مباشرة — `host` ممكن يرجع اسم جهاز مش عنوان على بعض
+/// الأجهزة، وهاد اللي كان يكسر لوبي المضيف.
 String encodeRoomCode(InternetAddress ip) {
   if (ip.type != InternetAddressType.IPv4) {
-    throw ArgumentError('Expected IPv4 address, got: ${ip.host}');
+    throw ArgumentError('Expected IPv4 address, got: ${ip.address}');
   }
-
-  final parts = ip.host.split('.');
-  final third = int.parse(parts[2]);
-  final fourth = int.parse(parts[3]);
-  final code = third * 256 + fourth;
-
+  final bytes = ip.rawAddress;
+  final code = bytes[2] * 256 + bytes[3];
   return code.toString().padLeft(5, '0');
 }
 
 /// فك تشفير رمز الغرفة — إرجاع عنوان IP للمضيف باستخدام الأول والثاني من عنوان اللاعب.
 /// الرمز يجب أن يكون بالضبط 5 أرقام وقيمته لا تتجاوز 65535.
 InternetAddress? decodeRoomCode(String code, InternetAddress myIp) {
-  // يجب أن يكون الكود بالضبط 5 أرقام
-  if (!RegExp(r'^\d{5}$').hasMatch(code)) {
-    return null;
-  }
-
-  // تحويل إلى رقم والتحقق من عدم تجاوزه 65535
+  if (!RegExp(r'^\d{5}$').hasMatch(code)) return null;
   final value = int.tryParse(code);
-  if (value == null || value > 65535) {
-    return null;
-  }
-
-  // استخراج الثالث والرابع من القيمة
-  final fourth = value % 256;
-  final third = value ~/ 256;
-
-  // الحصول على الأول والثاني من عنوان اللاعب
-  final myParts = myIp.host.split('.');
-  if (myParts.length != 4) {
-    return null;
-  }
-
-  final first = myParts[0];
-  final second = myParts[1];
-
-  // بناء عنوان IP الجديد
-  return InternetAddress('$first.$second.$third.$fourth');
+  if (value == null || value > 65535) return null;
+  if (myIp.type != InternetAddressType.IPv4) return null;
+  final mine = myIp.rawAddress;
+  return InternetAddress.fromRawAddress(
+    Uint8List.fromList([mine[0], mine[1], value ~/ 256, value % 256]),
+  );
 }
