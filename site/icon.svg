@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <!-- شارة مين الأطليسي — نفس أيقونة التطبيق (ic_launcher_foreground). -->
+  <rect x="0" y="0" width="108" height="108" rx="24" fill="#2A1258"/>
+  <circle cx="54" cy="54" r="32" fill="#FFD23F" stroke="#140626" stroke-width="6"/>
+  <g transform="rotate(-7 54 54)">
+    <path d="M43,46 A11.5,11.5 0 1 1 66,46 C66,54.5 54.5,55 54.5,62.5" fill="none" stroke="#140626" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="54.5" cy="71" r="7.5" fill="#140626"/>
+    <path d="M43,46 A11.5,11.5 0 1 1 66,46 C66,54.5 54.5,55 54.5,62.5" fill="none" stroke="#FFF6E5" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="54.5" cy="71" r="4.5" fill="#FFF6E5"/>
+  </g>
+</svg>
