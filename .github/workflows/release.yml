@@ -58,6 +58,31 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # مفتاح التوقيع الثابت من أسرار المستودع (Settings → Secrets → Actions):
+      #   ANDROID_KEYSTORE_BASE64  — ملف .jks مشفّر base64
+      #   ANDROID_KEYSTORE_PASSWORD
+      #   ANDROID_KEY_ALIAS        — (افتراضي meen)
+      # بدونهم البناء بيوقّع بمفتاح debug — وما بيتركّب فوق نسخة موقّعة
+      # بمفتاح تاني.
+      - name: Release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD secrets — signing with a throwaway debug key (updates won't install over previous builds)."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=${KEY_ALIAS:-meen}"
+          } > android/key.properties
+          echo "Signing with the release key."
+
       # نكهتين (android/app/build.gradle.kts): اللعبة، والديمو بمعرّف
       # مختلف حتى يتركّب جنبها.
       - name: Build the game APK
