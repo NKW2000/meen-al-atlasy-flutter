@@ -67,11 +67,9 @@ class _StrikeBox extends StatelessWidget {
           borderRadius: BorderRadius.circular(11),
           border: Border.all(color: FeudColors.ink, width: 4),
         ),
-        child: Text(
-          '✕',
-          style: FeudText.titleMedium(context).copyWith(
-            color: filled ? Colors.white : const Color(0xFF5C4A8C),
-          ),
+        child: StrikeGlyph(
+          size: size * 0.5,
+          color: filled ? Colors.white : const Color(0xFF5C4A8C),
         ),
       ),
     );
@@ -96,10 +94,7 @@ class StrikeMark extends StatelessWidget {
         borderRadius: BorderRadius.circular(11),
         border: Border.all(color: FeudColors.ink, width: 4),
       ),
-      child: Text(
-        '✕',
-        style: FeudText.titleMedium(context).copyWith(color: Colors.white),
-      ),
+      child: StrikeGlyph(size: size * 0.5, color: Colors.white),
     );
   }
 }
@@ -163,15 +158,49 @@ class _StrikeFlashState extends State<StrikeFlash>
             scale: _visible ? _scale.value : 1,
             child: child,
           ),
-          child: Center(
-            child: Text(
-              '✕',
-              style: FeudText.displayLarge(context)
-                  .copyWith(color: FeudColors.pink, fontSize: 220),
-            ),
+          child: const Center(
+            child: StrikeGlyph(size: 200, color: FeudColors.pink, stroke: 34),
           ),
         ),
       ),
     );
   }
+}
+
+/// علامة ✕ مرسومة (مش حرف): حرف ✕ مش موجود بخطوط اللعبة وبيطلع مربّع على
+/// بعض الأجهزة وبلقطات الموقع — الرسم بيطلع متل بعضه بكل مكان.
+class StrikeGlyph extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  /// سماكة الخط — افتراضياً خُمس الحجم.
+  final double? stroke;
+
+  const StrikeGlyph({super.key, required this.size, required this.color, this.stroke});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        size: Size.square(size),
+        painter: _StrikeGlyphPainter(color: color, stroke: stroke ?? size / 5),
+      );
+}
+
+class _StrikeGlyphPainter extends CustomPainter {
+  final Color color;
+  final double stroke;
+
+  const _StrikeGlyphPainter({required this.color, required this.stroke});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset.zero, Offset(size.width, size.height), paint);
+    canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(_StrikeGlyphPainter old) => old.color != color || old.stroke != stroke;
 }

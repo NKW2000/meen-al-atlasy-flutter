@@ -124,7 +124,7 @@ class HostGameBoardScreen extends StatelessWidget {
       );
     } else {
       judgeBar = FlatButton(
-        text: 'غلط ✕',
+        text: 'غلط',
         color: FeudColors.pink,
         textColor: Colors.white,
         shadow: FeudColors.strikeShadow,
@@ -344,11 +344,7 @@ class _StrikeDot extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
-        child: Text(
-          '✕',
-          style: FeudText.titleMedium(context)
-              .copyWith(color: lit ? Colors.white : FeudColors.outlineSoft),
-        ),
+        child: StrikeGlyph(size: 18, color: lit ? Colors.white : FeudColors.outlineSoft),
       ),
     );
   }

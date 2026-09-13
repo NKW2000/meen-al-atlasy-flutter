@@ -108,7 +108,7 @@ void main() {
       await tester.tap(find.text('بدّل السؤال ⟳'));
       await tester.pump();
       expect(swapped, isTrue);
-      expect(find.text('غلط ✕'), findsNothing);
+      expect(find.text('غلط'), findsNothing);
     });
 
     testWidgets('portrait lays the eight slots in one column without overflow', (tester) async {
@@ -123,7 +123,7 @@ void main() {
         portrait: true,
       );
       expect(tester.takeException(), isNull);
-      expect(find.text('غلط ✕'), findsOneWidget);
+      expect(find.text('غلط'), findsOneWidget);
     });
   });
 
