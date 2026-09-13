@@ -42,7 +42,7 @@ class PlayerBoard extends StatefulWidget {
 }
 
 class _PlayerBoardState extends State<PlayerBoard> with SingleTickerProviderStateMixin {
-  /// ومضة ذهبية على الشاشة كلها لحظة الضغط — مع الصوت والاهتزاز، حتى يحس
+  /// إطار ذهبي بيخبى ونبضة ببلوك الدور لحظة الضغط — مع الصوت والاهتزاز، حتى يحس
   /// اللاعب إنه ضغطته وصلت قبل ما يرجع رد المضيف من الشبكة.
   late final AnimationController _flash = AnimationController(
     vsync: this,
@@ -106,25 +106,37 @@ class _PlayerBoardState extends State<PlayerBoard> with SingleTickerProviderStat
                   ),
                   const SizedBox(height: 10),
                   // نقاط الفرق مش هون — بتبيّن بشاشة النتيجة بين الجولات.
-                  TurnBlock(
-                    state: state,
-                    playerId: widget.playerId,
-                    teamId: widget.teamId,
-                    mark: widget.mark,
-                    status: widget.status,
+                  // نبضة صغيرة ببلوك الدور لحظة الضغط.
+                  ScaleTransition(
+                    scale: TweenSequence<double>([
+                      TweenSequenceItem(tween: Tween(begin: 1, end: 1.06), weight: 35),
+                      TweenSequenceItem(tween: Tween(begin: 1.06, end: 1), weight: 65),
+                    ]).animate(_flash),
+                    child: TurnBlock(
+                      state: state,
+                      playerId: widget.playerId,
+                      teamId: widget.teamId,
+                      mark: widget.mark,
+                      status: widget.status,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          // الومضة: بتبلّش قوية وبتخبى بسرعة.
+          // إطار ذهبي رفيع حول الشاشة بيخبى بسرعة — بدون ما تضوي الشاشة
+          // كلها (كانت ومضة كاملة وما عجبت).
           IgnorePointer(
             child: FadeTransition(
               opacity: Tween<double>(
-                begin: 0.75,
+                begin: 1,
                 end: 0,
               ).chain(CurveTween(curve: Curves.easeOut)).animate(_flash),
-              child: const ColoredBox(color: FeudColors.gold),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: FeudColors.gold, width: 6),
+                ),
+              ),
             ),
           ),
         ],
