@@ -268,7 +268,9 @@
     var frame = document.createElement('iframe');
     frame.title = 'واجهة التطبيق';
     frame.setAttribute('tabindex', '-1');
-    frame.src = 'app/index.html?screen=' + phone.getAttribute('data-app');
+    // «app/?screen=» مش «app/index.html?screen=»: بعض السيرفرات (serve المحلي) بتحوّل
+    // index.html للمجلد وبتضيّع المعامل بالتحويل — فبتطلع التلاتة نفس الشاشة.
+    frame.src = 'app/?screen=' + phone.getAttribute('data-app');
     frame.addEventListener('load', function () {
       // فلاتر بترسم أول فريم بعد ما تحمّل محرّكها — منستنى شوي قبل ما نخبّي اللقطة.
       setTimeout(function () { phone.classList.add('live'); }, 900);
