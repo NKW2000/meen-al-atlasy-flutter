@@ -68,7 +68,8 @@ class GameSettings {
   /// لحقل [maxAnswers] وكحد أعلى بـ[clamped]). انسمّى هون `maxAnswersBound`
   /// لنفس سبب [minAnswersBound].
   static const int maxAnswersBound = 8;
-  static const int defaultMinAnswers = 5;
+  /// ٤ حتى يدخل البنك المرفق كله (٤–٨ أجوبة) بدون ما يلزم المضيف يغيّر الفلتر.
+  static const int defaultMinAnswers = 4;
   static const Map<TeamId, String> defaultTeamNames = {
     TeamId.team1: 'الفريق الأخضر',
     TeamId.team2: 'الفريق الأزرق',

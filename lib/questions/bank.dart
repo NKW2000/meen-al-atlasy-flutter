@@ -68,7 +68,7 @@ class QuestionBank {
   /// ]
   /// ```
   ///
-  /// `id` و`category` اختياريين. الأجوبة بتنرتب من الأعلى نقاط للأقل،
+  /// `id`، `category` و`isreaded` اختياريين. الأجوبة بتنرتب من الأعلى نقاط للأقل،
   /// لأن ترتيبها هو ترتيب اللوح وجواب رقم ١ بياخد اللوح بالمواجهة.
   static BankResult parse(String text) {
     List<dynamic> raw;
@@ -125,7 +125,9 @@ class QuestionBank {
 
       final idRaw = item['id'] as String?;
       final categoryRaw = (item['category'] as String?)?.trim();
-      final isRead = item['isRead'] as bool? ?? false;
+      // بالبنك المرفق الحقل اسمه `isreaded` (طلب المستخدم)، وبملفات المضيف
+      // القديمة `isRead` — الاتنين مقبولين.
+      final isRead = (item['isreaded'] ?? item['isRead']) as bool? ?? false;
 
       // ترتيب اللوح دايماً من الأعلى نقاط للأقل. بترتيب ثابت (stable) عند
       // تعادل النقاط — زي `sortedByDescending` بـKotlin — فبنقارن أولاً
@@ -205,9 +207,11 @@ class QuestionBank {
     if (category != null && category is! String) {
       throw const FormatException('question category must be a string');
     }
-    final isRead = item['isRead'];
-    if (isRead != null && isRead is! bool) {
-      throw const FormatException('question isRead must be a boolean');
+    for (final key in const ['isreaded', 'isRead']) {
+      final flag = item[key];
+      if (flag != null && flag is! bool) {
+        throw FormatException('question $key must be a boolean');
+      }
     }
     final answers = item['answers'];
     if (answers is! List) {

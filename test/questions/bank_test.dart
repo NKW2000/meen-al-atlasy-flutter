@@ -28,13 +28,18 @@ void main() {
       final questions = await QuestionBank.load();
       expect(
         questions.length,
-        greaterThanOrEqualTo(50),
-        reason: 'لازم يكون في ٥٠ سؤال عالأقل',
+        greaterThanOrEqualTo(500),
+        reason: 'لازم يكون في ٥٠٠ سؤال عالأقل',
       );
       expect(
         questions.map((q) => q.id).toSet().length,
         questions.length,
         reason: 'في معرّفات مكررة',
+      );
+      expect(
+        questions.map((q) => q.text).toSet().length,
+        questions.length,
+        reason: 'في أسئلة مكررة النص',
       );
       for (final question in questions) {
         expect(
@@ -48,10 +53,16 @@ void main() {
           reason: 'سؤال بدون تصنيف: ${question.id}',
         );
         expect(
-          question.answers.length >= 3,
+          question.answers.length >= 4 && question.answers.length <= 8,
           isTrue,
-          reason: 'سؤال بأقل من ٣ أجوبة: ${question.id}',
+          reason: 'سؤال مش بين ٤ و٨ أجوبة: ${question.id}',
         );
+        expect(
+          question.answers.map((a) => a.text).toSet().length,
+          question.answers.length,
+          reason: 'أجوبة مكررة بالسؤال: ${question.id}',
+        );
+        expect(question.isRead, isFalse, reason: 'سؤال مرفق مقروء مسبقاً: ${question.id}');
         expect(
           question.answers.every((a) => a.text.trim().isNotEmpty && a.points > 0),
           isTrue,
@@ -171,6 +182,19 @@ void main() {
       final question = (result as BankSuccess).questions.single;
       expect(question.id, 'q1');
       expect(question.category, 'عام');
+    });
+
+    test('isreaded (bundled bank spelling) and isRead both mark a question read', () {
+      const answers = '[{"text": "أ", "points": 10}, {"text": "ب", "points": 5}]';
+      final result = QuestionBank.parse(
+        '[{"text": "١", "isreaded": true, "answers": $answers},'
+        ' {"text": "٢", "isRead": true, "answers": $answers},'
+        ' {"text": "٣", "isreaded": false, "answers": $answers}]',
+      );
+
+      final read = (result as BankSuccess).questions.map((q) => q.isRead).toList();
+      expect(read, [true, true, false]);
+      expect(failureOf('[{"text": "١", "isreaded": "yes", "answers": $answers}]').message, contains('isreaded'));
     });
 
     test('broken json is refused with a readable reason', () {
