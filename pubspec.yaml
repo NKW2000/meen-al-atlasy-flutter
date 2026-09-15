@@ -1,7 +1,7 @@
 name: meen_al_atlasy
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.7.9+35
+version: 0.8.0+36
 
 environment:
   sdk: ^3.13.3
