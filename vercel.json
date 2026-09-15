@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "echo 'no npm deps'",
+  "buildCommand": "git clone --depth 1 --branch 3.47.4 https://github.com/flutter/flutter.git /tmp/flutter && export PATH=/tmp/flutter/bin:$PATH && flutter config --no-analytics && flutter build web --release -t lib/site_showcase.dart --base-href /app/ -o site/app",
+  "outputDirectory": "site",
+  "headers": [
+    {
+      "source": "/app/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
+    }
+  ]
+}
