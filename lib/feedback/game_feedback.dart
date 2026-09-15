@@ -25,14 +25,14 @@ Cue strikeCue(int number) => switch (number) {
     };
 
 const Map<Cue, String> _files = {
-  Cue.reveal: 'sounds/sfx_reveal.wav',
-  Cue.strike1: 'sounds/sfx_strike1.wav',
-  Cue.strike2: 'sounds/sfx_strike2.wav',
-  Cue.strike3: 'sounds/sfx_strike3.wav',
-  Cue.wrong: 'sounds/sfx_wrong.wav',
+  Cue.reveal: 'sounds/sfx_reveal.mp3',
+  Cue.strike1: 'sounds/sfx_strike1.mp3',
+  Cue.strike2: 'sounds/sfx_strike2.mp3',
+  Cue.strike3: 'sounds/sfx_strike3.mp3',
+  Cue.wrong: 'sounds/sfx_wrong.mp3',
   Cue.win: 'sounds/sfx_win.wav',
-  Cue.buzz: 'sounds/sfx_press.wav',
-  Cue.clock: 'sounds/sfx_clock.wav',
+  Cue.buzz: 'sounds/sfx_press.mp3',
+  Cue.clock: 'sounds/sfx_clock.mp3',
 };
 
 /// نمط مميّز لكل حدث — الغلط ضربتين، الفوز ثلاث نبضات. نفس

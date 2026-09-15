@@ -207,7 +207,7 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '• الأصوات: مؤثرات أصلية مولّدة للتطبيق، مش مأخوذة من أي برنامج.',
+                          '• الأصوات: من ملفات التطبيق الأصلي.',
                           style: body,
                         ),
                         const SizedBox(height: 6),
