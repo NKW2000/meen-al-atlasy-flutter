@@ -61,7 +61,7 @@ void main() {
       answerSeconds: 15,
       choiceSeconds: 8,
       roomName: 'غرفتي',
-      minAnswers: 3,
+      minAnswers: 5,
       maxAnswers: 6,
       teamNames: {TeamId.team1: 'أ', TeamId.team2: 'ب'},
     );
@@ -75,7 +75,7 @@ void main() {
     expect(loaded.answerSeconds, equals(15));
     expect(loaded.choiceSeconds, equals(8));
     expect(loaded.roomName, equals('غرفتي'));
-    expect(loaded.minAnswers, equals(3));
+    expect(loaded.minAnswers, equals(5));
     expect(loaded.maxAnswers, equals(6));
     expect(loaded.teamName(TeamId.team1), equals('أ'));
     expect(loaded.teamName(TeamId.team2), equals('ب'));
@@ -128,15 +128,15 @@ void main() {
     final r = await repo();
     await r.importBank(
       _bankJson([
-        ('س١', [('أ', 10), ('ب', 20)]), // جوابين
-        ('س٢', [('ج', 5), ('د', 5), ('ه', 5), ('و', 5)]), // أربعة أجوبة
+        ('س١', [('أ', 10), ('ب', 20), ('ت', 5), ('ث', 5)]), // أربعة أجوبة
+        ('س٢', [('ج', 5), ('د', 5), ('ه', 5), ('و', 5), ('ز', 5), ('ح', 5)]), // ستة أجوبة
       ]),
       'بنك',
     );
 
     final (low, high) = await r.answerBounds();
-    expect(low, equals(2));
-    expect(high, equals(4));
+    expect(low, equals(4));
+    expect(high, equals(6));
   });
 
   test('filteredQuestions keeps only questions within the min/max answers',
@@ -144,12 +144,12 @@ void main() {
     final r = await repo();
     await r.importBank(
       _bankJson([
-        ('قليل', [('أ', 10), ('ب', 20)]), // جوابين
-        ('كتير', [('ج', 5), ('د', 5), ('ه', 5), ('و', 5)]), // أربعة أجوبة
+        ('قليل', [('أ', 10), ('ب', 20), ('ت', 5), ('ث', 5)]), // أربعة أجوبة
+        ('كتير', [('ج', 5), ('د', 5), ('ه', 5), ('و', 5), ('ز', 5)]), // خمسة أجوبة
       ]),
       'بنك',
     );
-    await r.save((await r.load()).copyWith(minAnswers: 3, maxAnswers: 4));
+    await r.save((await r.load()).copyWith(minAnswers: 5, maxAnswers: 5));
 
     final filtered = await r.filteredQuestions();
     expect(filtered, hasLength(1));

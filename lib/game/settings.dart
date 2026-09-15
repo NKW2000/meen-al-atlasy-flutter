@@ -60,7 +60,7 @@ class GameSettings {
   /// اسم Kotlin الأصلي `MIN_ANSWERS`. انسمّى هون `minAnswersBound` لأنو
   /// Dart ما بيسمح بستاتيك وinstance member عندهم نفس الاسم بنفس الصنف،
   /// وفي حقل instance اسمه `minAnswers` أصلاً.
-  static const int minAnswersBound = 2;
+  static const int minAnswersBound = 4;
 
   /// ثمانية — نفس عدد خانات اللوح.
   ///

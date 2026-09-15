@@ -32,7 +32,7 @@ class QuestionBank {
 
   /// أقل وأكثر عدد أجوبة مسموح فيه بالسؤال الواحد.
   static const int minAnswers = 2;
-  static const int maxAnswers = 9;
+  static const int maxAnswers = 8;
 
   static List<Question>? _bundled;
 

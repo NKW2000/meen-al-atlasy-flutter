@@ -28,8 +28,8 @@ void main() {
       final questions = await QuestionBank.load();
       expect(
         questions.length,
-        greaterThanOrEqualTo(500),
-        reason: 'لازم يكون في ٥٠٠ سؤال عالأقل',
+        greaterThanOrEqualTo(800),
+        reason: 'لازم يكون في ٨٠٠ سؤال عالأقل',
       );
       expect(
         questions.map((q) => q.id).toSet().length,

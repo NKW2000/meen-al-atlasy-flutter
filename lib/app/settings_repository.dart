@@ -54,7 +54,20 @@ class SettingsRepository {
   static const _keyTeam1 = 'team_1_name';
   static const _keyTeam2 = 'team_2_name';
 
+  /// فلتر الأجوبة صار ٤–٨ (كان ٥–٨ افتراضياً). أول مرة بعد التحديث منرجّع
+  /// القيم المحفوظة للافتراضي الجديد حتى يبلّش المضيف من ٤.
+  static const _keyAnswersFilterV2 = 'answers_filter_v2';
+
+  /// بتنفّذ مرة وحدة بس (قبل أي قراءة أو كتابة) — بعدها الفلتر بيتحفظ عادي.
+  Future<void> _migrateAnswersFilter() async {
+    if (_prefs.getBool(_keyAnswersFilterV2) ?? false) return;
+    await _prefs.remove(_keyMinAnswers);
+    await _prefs.remove(_keyMaxAnswers);
+    await _prefs.setBool(_keyAnswersFilterV2, true);
+  }
+
   Future<GameSettings> load() async {
+    await _migrateAnswersFilter();
     final multipliers = _prefs
             .getString(_keyMultipliers)
             ?.split(',')
@@ -86,6 +99,7 @@ class SettingsRepository {
   }
 
   Future<void> save(GameSettings settings) async {
+    await _migrateAnswersFilter();
     final safe = settings.clamped();
     await _prefs.setInt(_keyRounds, safe.rounds);
     await _prefs.setString(_keyMultipliers, safe.multipliers.join(','));
