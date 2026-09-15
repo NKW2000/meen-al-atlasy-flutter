@@ -161,6 +161,19 @@ void main() {
     expect(result.turnPlayerId, 'a1');
   });
 
+  test('when the player whose turn it is drops, the turn moves on at once', () {
+    final engine = GameEngine(freshState());
+    engine.giveControlTo(TeamId.team1); // الدور على a2
+    expect(engine.state.turnPlayerId, 'a2');
+
+    final result = engine.apply(const PlayerLeft('a2'));
+
+    // ما منضل ناطرين عدّاد لاعب مش موجود — الدور راح لـ a3 فوراً.
+    expect(result.phase, RoundPhase.play);
+    expect(result.turnPlayerId, 'a3');
+    expect(result.answerSecondsLeft, result.answerLimitSeconds);
+  });
+
   test('losing every player marks the team disconnected', () {
     final engine = GameEngine(freshState());
     engine.apply(const PlayerLeft('a1'));

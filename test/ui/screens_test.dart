@@ -6,6 +6,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,6 +15,8 @@ import 'package:meen_al_atlasy/ui/arabic_numerals.dart';
 import 'package:meen_al_atlasy/ui/home/home_screen.dart';
 import 'package:meen_al_atlasy/ui/host/host_settings_screen.dart';
 import 'package:meen_al_atlasy/ui/intro/intro_screen.dart';
+import 'package:meen_al_atlasy/questions/bank.dart';
+import 'package:meen_al_atlasy/ui/settings/about_screen.dart';
 import 'package:meen_al_atlasy/ui/settings/bank_settings_screen.dart';
 import 'package:meen_al_atlasy/ui/theme.dart';
 
@@ -91,6 +94,58 @@ void main() {
 
       expect(find.text('الحالي: البنك المرفق مع التطبيق'), findsOneWidget);
       expect(find.text('استيراد ملف'), findsOneWidget);
+    });
+
+    testWidgets('copying the AI instructions puts the bank format on the clipboard', (tester) async {
+      final repo = await _repo(tester, 'bank_settings_copy');
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+          return null;
+        },
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+      await tester.pumpWidget(feudApp(BankSettingsScreen(settings: repo, onBack: () {})));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('نسخ تعليمات الذكاء الاصطناعي'));
+      await tester.tap(find.text('نسخ تعليمات الذكاء الاصطناعي'));
+      await tester.pump();
+
+      expect(copied, isNotNull);
+      expect(copied, contains('"answers"'));
+      expect(copied, contains('"isreaded": false'));
+      expect(copied, contains('${QuestionBank.minAnswers} لـ ${QuestionBank.maxAnswers}'));
+      expect(find.textContaining('انسخت التعليمات'), findsOneWidget);
+    });
+
+    testWidgets('the About button opens only when a handler is given', (tester) async {
+      final repo = await _repo(tester, 'bank_settings_about');
+      var about = false;
+      await tester.pumpWidget(feudApp(BankSettingsScreen(settings: repo, onBack: () {}, onAbout: () => about = true)));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('عن التطبيق'));
+      await tester.tap(find.text('عن التطبيق'));
+      expect(about, isTrue);
+    });
+  });
+
+  group('AboutScreen', () {
+    testWidgets('renders the sections and the back button works', (tester) async {
+      var back = false;
+      await tester.pumpWidget(feudApp(AboutScreen(onBack: () => back = true)));
+      await tester.pump();
+
+      expect(find.text('عن التطبيق'), findsOneWidget);
+      expect(find.text('كيف بتشتغل'), findsOneWidget);
+      expect(find.text('الحقوق'), findsOneWidget);
+      expect(find.text('المصدر على GitHub'), findsOneWidget);
+
+      await tester.tap(find.text('‹'));
+      expect(back, isTrue);
     });
 
     testWidgets('onBack fires on tap', (tester) async {

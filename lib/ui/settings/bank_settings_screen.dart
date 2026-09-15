@@ -11,9 +11,11 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/settings_repository.dart';
 import '../../game/settings.dart';
+import '../../questions/ai_prompt.dart';
 import '../../questions/bank.dart';
 import '../arabic_numerals.dart';
 import '../components/buttons.dart';
@@ -26,7 +28,15 @@ class BankSettingsScreen extends StatefulWidget {
   final SettingsRepository settings;
   final VoidCallback onBack;
 
-  const BankSettingsScreen({super.key, required this.settings, required this.onBack});
+  /// «عن التطبيق» — اختياري (المعرض ما بيمرّره).
+  final VoidCallback? onAbout;
+
+  const BankSettingsScreen({
+    super.key,
+    required this.settings,
+    required this.onBack,
+    this.onAbout,
+  });
 
   @override
   State<BankSettingsScreen> createState() => _BankSettingsScreenState();
@@ -54,11 +64,24 @@ class _BankSettingsScreenState extends State<BankSettingsScreen> {
       switch (bankResult) {
         case BankSuccess(:final questions):
           _bankFailed = false;
-          _bankMessage = 'تمام — انقرأ ${questions.length.ar()} سؤال من $displayName';
+          _bankMessage =
+              'تمام — انقرأ ${questions.length.ar()} سؤال من $displayName';
         case BankFailure(:final message):
           _bankFailed = true;
           _bankMessage = message;
       }
+    });
+  }
+
+  /// بينسخ تعليمات شكل الملف — المضيف بيلصقها لأي ذكاء اصطناعي وبيرجع
+  /// بملف جاهز للاستيراد.
+  Future<void> _copyAiPrompt() async {
+    await Clipboard.setData(ClipboardData(text: aiBankPrompt()));
+    if (!mounted) return;
+    setState(() {
+      _bankFailed = false;
+      _bankMessage =
+          'انسخت التعليمات — الصقها بأي ذكاء اصطناعي واستورد الملف اللي بيرجعه';
     });
   }
 
@@ -100,7 +123,8 @@ class _BankSettingsScreenState extends State<BankSettingsScreen> {
                               child: Center(
                                 child: Text(
                                   '‹',
-                                  style: FeudText.titleLarge(context).copyWith(color: FeudColors.ink),
+                                  style: FeudText.titleLarge(context)
+                                      .copyWith(color: FeudColors.ink),
                                 ),
                               ),
                             ),
@@ -108,7 +132,8 @@ class _BankSettingsScreenState extends State<BankSettingsScreen> {
                           const SizedBox(width: 12),
                           Text(
                             'الإعدادات',
-                            style: FeudText.headlineSmall(context).copyWith(color: FeudColors.gold),
+                            style: FeudText.headlineSmall(context)
+                                .copyWith(color: FeudColors.gold),
                           ),
                         ],
                       ),
@@ -116,7 +141,8 @@ class _BankSettingsScreenState extends State<BankSettingsScreen> {
                   : [
                       Text(
                         'الإعدادات',
-                        style: FeudText.headlineSmall(context).copyWith(color: FeudColors.gold),
+                        style: FeudText.headlineSmall(context)
+                            .copyWith(color: FeudColors.gold),
                       ),
                       SizedBox(
                         width: 150,
@@ -132,66 +158,109 @@ class _BankSettingsScreenState extends State<BankSettingsScreen> {
             const GoldDivider(),
             const SizedBox(height: 12),
             Expanded(
-              child: SettingsCard(
-                title: 'بنك الأسئلة',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      settings.bankName != null
-                          ? 'الحالي: ${settings.bankName} — ${settings.bankQuestionCount.ar()} سؤال'
-                          : 'الحالي: البنك المرفق مع التطبيق',
-                      style: FeudText.bodyLarge(context).copyWith(color: FeudColors.text),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
+              child: ListView(
+                children: [
+                  SettingsCard(
+                    title: 'بنك الأسئلة',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: PrimaryButton(text: 'استيراد ملف', onClick: _importBank),
+                        Text(
+                          settings.bankName != null
+                              ? 'الحالي: ${settings.bankName} — ${settings.bankQuestionCount.ar()} سؤال'
+                              : 'الحالي: البنك المرفق مع التطبيق',
+                          style: FeudText.bodyLarge(context)
+                              .copyWith(color: FeudColors.text),
                         ),
-                        if (settings.bankName != null) ...[
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            width: 120,
-                            child: SecondaryButton(
-                              text: 'حذف',
-                              onClick: _clearBank,
-                              accent: FeudColors.pink,
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: PrimaryButton(
+                                text: 'استيراد ملف',
+                                onClick: _importBank,
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (_bankMessage != null) ...[
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: CartoonSurface(
-                          color: _bankFailed ? FeudColors.pink : FeudColors.lime,
-                          borderWidth: 3,
-                          corner: FeudShape.block,
-                          shadow: 4,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                            child: Text(
-                              _bankMessage!,
-                              style: FeudText.labelLarge(context).copyWith(
-                                color: _bankFailed ? Colors.white : FeudColors.ink,
+                            if (settings.bankName != null) ...[
+                              const SizedBox(width: 10),
+                              SizedBox(
+                                width: 120,
+                                child: SecondaryButton(
+                                  text: 'حذف',
+                                  onClick: _clearBank,
+                                  accent: FeudColors.pink,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (_bankMessage != null) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: CartoonSurface(
+                              color: _bankFailed
+                                  ? FeudColors.pink
+                                  : FeudColors.lime,
+                              borderWidth: 3,
+                              corner: FeudShape.block,
+                              shadow: 4,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 9,
+                                ),
+                                child: Text(
+                                  _bankMessage!,
+                                  style: FeudText.labelLarge(context).copyWith(
+                                    color: _bankFailed
+                                        ? Colors.white
+                                        : FeudColors.ink,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
+                        ],
+                        const SizedBox(height: 12),
+                        Text(
+                          'بتقدر تستورد أسئلتك من ملف بدل الأسئلة الجاهزة. كل سؤال بدّه نص '
+                          'وأجوبة، وكل جواب إله نقاط — والأعلى نقاط بياخد اللوح بالمواجهة.',
+                          style: FeudText.bodyMedium(context)
+                              .copyWith(color: FeudColors.textMuted),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Text(
+                          'مش عارف تكتب الملف؟ انسخ التعليمات وأعطيها لـ ChatGPT أو أي ذكاء '
+                          'اصطناعي — بيرجّعلك ملف JSON جاهز للاستيراد.',
+                          style: FeudText.bodyMedium(context)
+                              .copyWith(color: FeudColors.textMuted),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: SecondaryButton(
+                            text: 'نسخ تعليمات الذكاء الاصطناعي',
+                            onClick: _copyAiPrompt,
+                            accent: FeudColors.gold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (widget.onAbout != null) ...[
                     const SizedBox(height: 12),
-                    Text(
-                      'بتقدر تستورد أسئلتك من ملف بدل الأسئلة الجاهزة. كل سؤال بدّه نص '
-                      'وأجوبة، وكل جواب إله نقاط — والأعلى نقاط بياخد اللوح بالمواجهة.',
-                      style: FeudText.bodyMedium(context).copyWith(color: FeudColors.textMuted),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SecondaryButton(
+                        text: 'عن التطبيق',
+                        onClick: widget.onAbout!,
+                        accent: FeudColors.teal,
+                      ),
                     ),
                   ],
-                ),
+                ],
               ),
             ),
           ],

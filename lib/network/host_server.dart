@@ -61,6 +61,9 @@ abstract class HostTransport {
   /// بيبعت رسالة لكل الأجهزة المتّصلة.
   void broadcast(HostMessage m);
 
+  /// بيسكّر اتصال جهاز واحد (مثلاً لاعب جديد حاول يفوت واللعبة شغّالة).
+  Future<void> close(String endpointId);
+
   /// بيوقف الخادم ويسكّر كل الاتصالات.
   Future<void> stop();
 }
@@ -120,9 +123,12 @@ class HostServer implements HostTransport {
       _events.add(ClientConnected(id));
       ws.listen(
         (data) {
+          // رسالة اللاعب الطبيعية أقل من ٢٠٠ بايت — أي شي أكبر بكتير مش
+          // من التطبيق، منتجاهله بدل ما نفكّ JSON ضخم على جهاز المضيف.
+          if (data is! String || data.length > 4096) return;
           try {
             _events.add(
-              ClientMessageReceived(id, decodeClientMessage(data as String)),
+              ClientMessageReceived(id, decodeClientMessage(data)),
             );
           } catch (_) {
             // رسالة مشوّهة — نتجاهلها.
@@ -142,7 +148,22 @@ class HostServer implements HostTransport {
 
   @override
   void send(String endpointId, HostMessage m) {
-    _sockets[endpointId]?.add(encodeHostMessage(m));
+    final ws = _sockets[endpointId];
+    if (ws == null) return;
+    try {
+      ws.add(encodeHostMessage(m));
+    } catch (_) {
+      // الاتصال سكّر بالمنتصف — إشعار الانقطاع جاي لحاله.
+    }
+  }
+
+  @override
+  Future<void> close(String endpointId) async {
+    final ws = _sockets.remove(endpointId);
+    if (ws == null) return;
+    try {
+      await ws.close(1000);
+    } catch (_) {}
   }
 
   @override

@@ -13,6 +13,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,6 +41,7 @@ import 'ui/intro/intro_screen.dart';
 import 'ui/player/player_join_screen.dart';
 import 'ui/player/player_screen.dart';
 import 'ui/player/room_list_screen.dart';
+import 'ui/settings/about_screen.dart';
 import 'ui/settings/bank_settings_screen.dart';
 import 'ui/show/game_over_screen.dart';
 import 'ui/show/round_opening.dart';
@@ -80,6 +82,14 @@ Future<void> main() async {
   );
   // كل الاتجاهات الأربعة — نفس `android:screenOrientation="fullUser"`.
   await SystemChrome.setPreferredOrientations(const []);
+  // شاشات ٩٠/١٢٠ هرتز: أندرويد بيشغّل التطبيق على ٦٠ افتراضياً، فالحركات
+  // (كشف الخانة، الأبواب، العدّاد) بتبيّن أخشن من الجهاز نفسه. منطلب أعلى
+  // تردّد متاح — وبيتجاهل بصمت على أجهزة/أنظمة ما بتدعمه.
+  if (Platform.isAndroid) {
+    try {
+      await FlutterDisplayMode.setHighRefreshRate();
+    } catch (_) {}
+  }
 
   runApp(await bootstrap());
 }
@@ -162,7 +172,13 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
         builder: (context) => BankSettingsScreen(
           settings: AppScope.of(context).settings,
           onBack: () => Navigator.of(context).pop(),
+          onAbout: () => Navigator.of(context).pushNamed('about'),
         ),
+      );
+
+    case 'about':
+      page = Builder(
+        builder: (context) => AboutScreen(onBack: () => Navigator.of(context).pop()),
       );
 
     case 'hostLobby':
@@ -392,6 +408,7 @@ class _HostLobbyRouteState extends State<_HostLobbyRoute> {
           onStartHosting: () => unawaited(host.startHosting()),
           onMovePlayer: host.movePlayer,
           onBeginGame: () {
+            if (!host.canStart) return;
             host.startGame();
             Navigator.of(context).pushNamed('hostBoard');
           },

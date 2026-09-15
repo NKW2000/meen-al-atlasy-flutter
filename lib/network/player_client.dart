@@ -104,10 +104,13 @@ class PlayerClient implements PlayerTransport {
 
     status.value = ConnectionStatus.connecting;
     final WebSocket ws;
+    // لو مرق الوقت والاتصال لسا عم يتفاوض، الـ socket اللي بيوصل بعدين
+    // لازم ينسكّر — وإلا بيضل مفتوح عند المضيف كلاعب شبح ما بيبعت Join.
+    final pending = WebSocket.connect('ws://${host.address}:$port/');
     try {
-      ws = await WebSocket.connect('ws://${host.address}:$port/')
-          .timeout(const Duration(seconds: 5));
+      ws = await pending.timeout(const Duration(seconds: 5));
     } catch (_) {
+      unawaited(pending.then((late) => late.close(), onError: (_) {}));
       status.value = ConnectionStatus.disconnected;
       rethrow;
     }

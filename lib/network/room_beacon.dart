@@ -42,6 +42,8 @@ class RoomBeacon {
       // عامل نقطة اتصال وبياناته الخلوية شغّالة، 255.255.255.255 ممكن يطلع
       // من واجهة الخلوي بدل الواي فاي، فما يوصل لولا حدا.
       final targets = <InternetAddress>{target, ...await _directedBroadcasts()};
+      // stop() ممكن يكون سبقنا ونحنا عم نجمع العناوين — المقبس سكّر.
+      if (!identical(_socket, sock)) return;
       for (final address in targets) {
         try {
           sock.send(payload, address, roomBeaconPort);

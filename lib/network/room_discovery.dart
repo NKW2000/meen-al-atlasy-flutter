@@ -54,12 +54,19 @@ class RoomDiscovery {
     if (_socket != null) return; // شغّال أصلاً — ما منعمل شي.
     await acquireMulticastLock();
 
-    final sock = await RawDatagramSocket.bind(
-      bindAddress,
-      roomBeaconPort,
-      reuseAddress: true,
-      reusePort: false,
-    );
+    final RawDatagramSocket sock;
+    try {
+      sock = await RawDatagramSocket.bind(
+        bindAddress,
+        roomBeaconPort,
+        reuseAddress: true,
+        reusePort: false,
+      );
+    } catch (_) {
+      // ما قدرنا نربط المنفذ — ما منخلّي القفل ماسك الواي فاي بلا داعي.
+      await releaseMulticastLock();
+      rethrow;
+    }
     sock.broadcastEnabled = true;
     _socket = sock;
 
@@ -83,8 +90,16 @@ class RoomDiscovery {
   @visibleForTesting
   void handlePacket(InternetAddress from, List<int> data) {
     try {
+      // حزمة المنارة أصغر من ٢٠٠ بايت — أكبر من هيك مش منّا.
+      if (data.length > 512) return;
       final j = jsonDecode(utf8.decode(data)) as Map<String, dynamic>;
-      final room = Room(j['room'] as String, from, j['port'] as int);
+      final port = j['port'] as int;
+      if (port <= 0 || port > 65535) return;
+      // اسم الغرفة بينعرض بلستة اللاعب — منقصّه حتى ما تخرب الشاشة حزمة غريبة.
+      var name = (j['room'] as String).trim();
+      if (name.isEmpty) return;
+      if (name.length > 40) name = name.substring(0, 40);
+      final room = Room(name, from, port);
       final key = (j['id'] as String?) ?? room.endpointId;
       _seen.removeWhere((k, entry) => k != key && entry.$1.endpointId == room.endpointId);
       _seen[key] = (room, DateTime.now());

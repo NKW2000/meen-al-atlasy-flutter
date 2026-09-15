@@ -81,6 +81,16 @@ class CountdownCues extends StatefulWidget {
 class _CountdownCuesState extends State<CountdownCues> {
   int? _stream;
 
+  /// محفوظ من `didChangeDependencies` — البحث عن أسلاف الويدجت وقت
+  /// `dispose` ممنوع، وكان يرمي بالإصدار أول ما تتسكّر الشاشة والساعة عم تدق.
+  GameFeedback? _feedback;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _feedback = GameFeedbackScope.maybeOf(context);
+  }
+
   bool _inWindow(int seconds) => seconds >= 1 && seconds <= widget.from;
 
   @override
@@ -97,7 +107,7 @@ class _CountdownCuesState extends State<CountdownCues> {
 
   void _sync() {
     if (!mounted) return;
-    final feedback = GameFeedbackScope.maybeOf(context);
+    final feedback = _feedback ??= GameFeedbackScope.maybeOf(context);
     if (feedback == null) return;
     if (_inWindow(widget.seconds)) {
       _stream ??= feedback.startClock();
@@ -113,7 +123,7 @@ class _CountdownCuesState extends State<CountdownCues> {
   @override
   void dispose() {
     final stream = _stream;
-    if (stream != null) GameFeedbackScope.maybeOf(context)?.stopStream(stream);
+    if (stream != null) _feedback?.stopStream(stream);
     super.dispose();
   }
 

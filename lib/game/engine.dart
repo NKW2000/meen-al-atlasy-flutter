@@ -398,7 +398,17 @@ class GameEngine {
       final team = teams[teamId];
       if (team != null) teams[teamId] = team.copyWith(connected: anyConnected);
     }
-    return _state.copyWith(players: players, teams: teams);
+    final next = _state.copyWith(players: players, teams: teams);
+    // اللي انقطع هو صاحب الدور بمرحلة اللعب؟ الدور بينتقل فوراً لزميله
+    // المتّصل بدل ما يضل الفريق ناطر عدّاد لاعب مش موجود.
+    final team = next.controllingTeam;
+    if (next.phase == RoundPhase.play &&
+        team != null &&
+        next.turnPlayerId == event.playerId &&
+        next.playersOf(team).any((p) => p.connected)) {
+      return next.advanceTurn(team);
+    }
+    return next;
   }
 
   /// نقل لاعب لفريق تاني — وبعدها منرقّم الفريقين من جديد.

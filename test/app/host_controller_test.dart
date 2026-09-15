@@ -50,6 +50,12 @@ class FakeHostTransport implements HostTransport {
   @override
   void broadcast(HostMessage m) => broadcasts.add(m);
 
+  /// نقاط النهاية اللي المضيف سكّرها (لاعب جديد بعد بداية اللعبة مثلاً).
+  final List<String> closed = [];
+
+  @override
+  Future<void> close(String endpointId) async => closed.add(endpointId);
+
   @override
   Future<void> stop() async {
     stopCalls++;
@@ -300,7 +306,9 @@ void main() {
 
   test('ChangeTeam is accepted only before the game has started', () async {
     final vm = controller();
-    join(transport, ['ep-a', 'ep-b']);
+    // تلاتة: بعد ما ينتقل ep-a للفريق ٢ بيضل بالفريق ١ لاعب (ep-c) حتى
+    // تقدر اللعبة تبلّش — startGame بيرفض فريق فاضي.
+    join(transport, ['ep-a', 'ep-b', 'ep-c']);
     await pump();
 
     transport.emit(ClientMessageReceived(
@@ -486,7 +494,7 @@ void main() {
   test('movePlayer works before the game starts and is blocked after',
       () async {
     final vm = controller();
-    join(transport, ['ep-a']);
+    join(transport, ['ep-a', 'ep-b', 'ep-c']);
     await pump();
 
     vm.movePlayer('ep-a', TeamId.team2);
@@ -590,11 +598,73 @@ void main() {
     expect(vm.state.matchStarted, isTrue);
   });
 
+  test('a second Join from the same endpoint renames the same player instead of adding a ghost', () async {
+    final vm = controller();
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+
+    transport.emit(ClientMessageReceived('ep-a', JoinMessage(playerName: 'سامر')));
+    await pump();
+
+    expect(vm.state.players.length, equals(2));
+    expect(vm.state.player('ep-a')!.name, equals('سامر'));
+    expect(vm.state.players.where((p) => p.connected).length, equals(2));
+  });
+
+  test('a brand-new player after the game started is refused and its connection closed', () async {
+    final vm = controller();
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+
+    join(transport, ['ep-late']);
+    await pump();
+
+    expect(vm.state.player('ep-late'), isNull);
+    expect(transport.closed, equals(['ep-late']));
+
+    // بس لاعب انقطع بيقدر يرجع بنقطة نهاية جديدة.
+    transport.emit(ClientDisconnected('ep-b'));
+    await pump();
+    transport.emit(ClientMessageReceived('ep-b2', JoinMessage(playerName: 'ep-b', playerId: 'ep-b')));
+    await pump();
+    expect(vm.state.player('ep-b')!.connected, isTrue);
+    expect(transport.closed, equals(['ep-late']));
+  });
+
+  test('player names are trimmed, capped and never empty', () async {
+    final vm = controller();
+    transport.emit(ClientMessageReceived('ep-a', JoinMessage(playerName: '   ')));
+    transport.emit(ClientMessageReceived('ep-b', JoinMessage(playerName: '  أبو   العبد  ')));
+    transport.emit(ClientMessageReceived('ep-c', JoinMessage(playerName: 'x' * 60)));
+    await pump();
+
+    expect(vm.state.player('ep-a')!.name, equals('لاعب'));
+    expect(vm.state.player('ep-b')!.name, equals('أبو العبد'));
+    expect(vm.state.player('ep-c')!.name.length, equals(HostController.maxPlayerName));
+  });
+
+  test('startGame refuses to start with an empty team', () async {
+    final vm = controller();
+    join(transport, ['ep-a']);
+    await pump();
+
+    expect(vm.canStart, isFalse);
+    vm.startGame();
+    expect(vm.state.matchStarted, isFalse);
+
+    join(transport, ['ep-b']);
+    await pump();
+    expect(vm.canStart, isTrue);
+    vm.startGame();
+    expect(vm.state.matchStarted, isTrue);
+  });
+
   test('resetSession stops the server and the beacon and clears the state',
       () async {
     final vm = controller();
     await vm.startHosting();
-    join(transport, ['ep-a']);
+    join(transport, ['ep-a', 'ep-b']);
     await pump();
     vm.startGame();
 
@@ -685,6 +755,9 @@ class _FailingTransport implements HostTransport {
 
   @override
   void broadcast(HostMessage m) {}
+
+  @override
+  Future<void> close(String endpointId) async {}
 
   @override
   Future<void> stop() async {}

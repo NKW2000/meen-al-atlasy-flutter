@@ -89,6 +89,19 @@ class HostController extends ChangeNotifier {
 
   static const int minPlayersPerTeam = 1;
 
+  /// أطول اسم لاعب بينعرض عاللوح — أطول من هيك بينقص.
+  static const int maxPlayerName = 20;
+
+  /// بيرجّع إذا كل فريق فيه لاعب متّصل عالأقل — بدونه ما في مواجهة أصلاً.
+  bool get canStart {
+    if (_started) return false;
+    for (final team in TeamId.values) {
+      final connected = _engine.state.playersOf(team).where((p) => p.connected).length;
+      if (connected < minPlayersPerTeam) return false;
+    }
+    return true;
+  }
+
   GameState get state => _engine.state;
 
   bool get advertising => _advertising;
@@ -181,6 +194,9 @@ class HostController extends ChangeNotifier {
   }
 
   void startGame() {
+    // شاشة اللوبي بتعطّل الزر، بس الحارس هون كمان: لعبة بفريق فاضي ما
+    // إلها مواجهة وبتعلق عالمنصة.
+    if (!canStart) return;
     _started = true;
     _applyAndBroadcast(const StartGame());
     // المنارة ما عاد لازمة بعد ما بلّشت اللعبة — اللاعبين المتّصلين أصلاً
@@ -265,18 +281,33 @@ class HostController extends ChangeNotifier {
   /// 3. وإلا لاعب جديد كليّاً، معرّفه = معرّف نقطة النهاية.
   void _addPlayer(
     String endpointId,
-    String name,
+    String rawName,
     TeamId? wanted,
     String? providedPlayerId,
   ) {
+    final name = sanitizePlayerName(rawName);
     String? reattachId;
-    if (providedPlayerId != null) {
+    // نفس الجهاز (نفس نقطة النهاية) بعت Join تاني — مثلاً غيّر اسمه
+    // باللوبي. هاد نفس اللاعب مهما كان الاسم، مش لاعب جديد: بدون هالفرع
+    // كان بينضاف لاعب تاني بنفس الجهاز وبيضل القديم «متّصل» للأبد.
+    final samePlayer = _endpointToPlayer[endpointId];
+    if (samePlayer != null && _engine.state.player(samePlayer) != null) {
+      reattachId = samePlayer;
+    } else if (providedPlayerId != null) {
       final existingById = _engine.state.player(providedPlayerId);
       if (existingById != null && _canReattachById(existingById, name)) {
         reattachId = providedPlayerId;
       }
     }
     reattachId ??= _disconnectedPlayerByName(name);
+
+    // بعد ما تبلّش اللعبة ما في انضمام جديد — بس رجوع لاعب انقطع. لاعب
+    // جديد بنص الجولة كان بياخد رقم وبيغيّر مين عالمنصة، وممكن يكون أي
+    // جهاز غريب عالشبكة. منسكّر اتصاله وبيشوف عنده إنه انقطع.
+    if (reattachId == null && _started) {
+      unawaited(server.close(endpointId));
+      return;
+    }
 
     final playerId = reattachId ?? endpointId;
     final existing = _engine.state.player(playerId);
@@ -312,6 +343,15 @@ class HostController extends ChangeNotifier {
     final liveEndpoint = _playerToEndpoint[existing.id];
     if (liveEndpoint == null) return true;
     return existing.name == claimedName;
+  }
+
+  /// اسم اللاعب متل ما بيوصل من الشبكة: بدون فراغات زايدة، مش فاضي،
+  /// ومش أطول من [maxPlayerName] حتى ما يكسر اللوح.
+  @visibleForTesting
+  static String sanitizePlayerName(String raw) {
+    final collapsed = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (collapsed.isEmpty) return 'لاعب';
+    return collapsed.length > maxPlayerName ? collapsed.substring(0, maxPlayerName) : collapsed;
   }
 
   String? _disconnectedPlayerByName(String name) {

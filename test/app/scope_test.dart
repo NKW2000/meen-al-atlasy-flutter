@@ -31,6 +31,9 @@ class _NoopTransport implements HostTransport {
   void send(String endpointId, HostMessage m) {}
   @override
   void broadcast(HostMessage m) {}
+
+  @override
+  Future<void> close(String endpointId) async {}
   @override
   Future<void> stop() async {}
 }
