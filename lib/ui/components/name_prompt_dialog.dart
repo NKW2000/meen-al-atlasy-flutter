@@ -18,6 +18,12 @@ class NamePromptDialog extends StatefulWidget {
   final ValueChanged<String> onConfirm;
   final VoidCallback onDismiss;
 
+  /// نص الخانة الفاضية.
+  final String hint;
+
+  /// أرقام بس (كود الغرفة) — وبيفتح كيبورد الأرقام.
+  final bool digitsOnly;
+
   const NamePromptDialog({
     super.key,
     required this.title,
@@ -25,6 +31,8 @@ class NamePromptDialog extends StatefulWidget {
     this.maxLength = 18,
     required this.onConfirm,
     required this.onDismiss,
+    this.hint = 'اكتب الاسم',
+    this.digitsOnly = false,
   });
 
   @override
@@ -98,7 +106,9 @@ class _NamePromptDialogState extends State<NamePromptDialog> {
                         maxLength: widget.maxLength,
                         maxLines: 1,
                         textInputAction: TextInputAction.done,
+                        keyboardType: widget.digitsOnly ? TextInputType.number : null,
                         inputFormatters: [
+                          if (widget.digitsOnly) FilteringTextInputFormatter.digitsOnly,
                           TextInputFormatter.withFunction((oldValue, newValue) {
                             final trimmed = newValue.text.trimLeft();
                             // لازم نقصّ الـ selection لطول النص الجديد وإلا
@@ -123,7 +133,7 @@ class _NamePromptDialogState extends State<NamePromptDialog> {
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                           counterText: '',
-                          hintText: 'اكتب الاسم',
+                          hintText: widget.hint,
                           hintStyle: FeudText.headlineSmall(context)
                               .copyWith(color: FeudColors.ink.withValues(alpha: 0.35)),
                         ),

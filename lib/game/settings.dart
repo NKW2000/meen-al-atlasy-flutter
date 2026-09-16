@@ -40,7 +40,7 @@ class GameSettings {
   });
 
   static const int minRounds = 1;
-  static const int maxRounds = 8;
+  static const int maxRounds = 16;
   static const int defaultRounds = 4;
   static const int minStrikes = 1;
   static const int maxStrikes = 5;

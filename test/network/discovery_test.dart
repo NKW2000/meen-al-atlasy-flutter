@@ -13,9 +13,23 @@ void main() {
   test(
     'RoomBeacon is found by RoomDiscovery on loopback, then expires',
     () async {
-      final beacon = RoomBeacon(target: InternetAddress.loopbackIPv4);
-      final discovery =
-          RoomDiscovery(bindAddress: InternetAddress.loopbackIPv4);
+      // زوج منافذ خاص بهالملف — ملفات الاختبار بتمشي بالتوازي، ومنافذ
+      // ثابتة مشتركة بتخلّي مقبس ملف تاني ياكل حزمنا.
+      const announce = 47316;
+      const probe = 47317;
+      final beacon = RoomBeacon(
+        target: InternetAddress.loopbackIPv4,
+        announcePort: announce,
+        probePort: probe,
+      );
+      final discovery = RoomDiscovery(
+        bindAddress: InternetAddress.loopbackIPv4,
+        // هالاختبار لمسار البثّ — فالسؤال كمان على loopback، مش بثّ عام
+        // (مقبس مربوط على loopback ما بيقدر يبعت بثّ عام أصلاً).
+        probeTarget: InternetAddress.loopbackIPv4,
+        listenPort: announce,
+        probePort: probe,
+      );
 
       try {
         await discovery.start();

@@ -85,6 +85,25 @@ class _BankSettingsScreenState extends State<BankSettingsScreen> {
     });
   }
 
+  /// بيحفظ البنك الحالي كملف JSON مع `isreaded` — النسخة اللي بيرجّعها
+  /// المضيف بعد تحديث/تنزيل التطبيق من جديد فما تتكرر أسئلة سألها.
+  Future<void> _exportBank() async {
+    final json = await widget.settings.exportBank();
+    final saved = await FilePicker.saveFile(
+      fileName: 'meen-al-atlasy-questions.json',
+      bytes: Uint8List.fromList(utf8.encode(json)),
+      mimeType: 'application/json',
+      dialogTitle: 'احفظ نسخة من الأسئلة',
+    );
+    if (!mounted) return;
+    setState(() {
+      _bankFailed = false;
+      _bankMessage = saved == null
+          ? 'ما انحفظ إشي'
+          : 'انحفظت نسخة فيها الأسئلة والمقروء منها — استوردها بعد التحديث';
+    });
+  }
+
   Future<void> _clearBank() async {
     await widget.settings.clearBank();
     if (!mounted) return;
@@ -244,6 +263,23 @@ class _BankSettingsScreenState extends State<BankSettingsScreen> {
                             text: 'نسخ تعليمات الذكاء الاصطناعي',
                             onClick: _copyAiPrompt,
                             accent: FeudColors.gold,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'سجل الأسئلة اللي سألتها محفوظ على الجهاز وبيضل بعد تحديث '
+                          'التطبيق. وإذا نزّلت التطبيق من جديد أو غيّرت جهاز، احفظ '
+                          'نسخة من هون واستوردها بعدين — الأسئلة اللي سألتها ما ترجع.',
+                          style: FeudText.bodyMedium(context)
+                              .copyWith(color: FeudColors.textMuted),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: SecondaryButton(
+                            text: 'احفظ نسخة من الأسئلة',
+                            onClick: _exportBank,
+                            accent: FeudColors.lime,
                           ),
                         ),
                       ],

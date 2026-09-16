@@ -5,6 +5,13 @@
 ///
 /// ما بيعرف وين يحفظ ملفاته — المستدعي هو اللي بيمرر مجلد التخزين
 /// (`getApplicationSupportDirectory()` بالتطبيق الحقيقي).
+///
+/// **سجل القراءة والتحديثات:** الملف بمجلد بيانات التطبيق، فبيضل موجود
+/// بعد تحديث التطبيق (بينمسح بس مع إزالة التطبيق أو «حذف البيانات»).
+/// وبينحفظ فيه **المعرّف والبصمة** لكل سؤال انقرأ ([questionFingerprint]):
+/// بالمعرّف لحاله كانت الأسئلة ترجع تنسأل بعد تحديث بدّل معرّفات البنك.
+/// وللتنزيل من جديد أو جهاز تاني في [exportBank] — ملف JSON بنفس شكل
+/// الاستيراد مع `isreaded` معبّى.
 library;
 
 import 'dart:convert';
@@ -12,6 +19,11 @@ import 'dart:io';
 
 import '../game/models.dart';
 import 'bank.dart';
+
+/// سجل القراءة: معرّفات الأسئلة وبصماتها.
+typedef ReadState = ({Set<String> ids, Set<String> texts});
+
+const ReadState _emptyRead = (ids: <String>{}, texts: <String>{});
 
 class BankStore {
   final Directory _dir;
@@ -37,25 +49,29 @@ class BankStore {
   ///
   /// ملف تالف أو بشكل غير متوقع بيتعامل معه متل لو كان غير موجود (فاضي) —
   /// نفس تصرّف `SharedPreferences` الافتراضي بالنسخة الأصلية.
-  Future<Set<String>> readQuestionIds() async {
-    if (!await _readIdsFile.exists()) return <String>{};
-    try {
-      final decoded = jsonDecode(await _readIdsFile.readAsString());
-      if (decoded is! List) return <String>{};
-      return decoded.map((e) => e as String).toSet();
-    } catch (_) {
-      return <String>{};
-    }
-  }
+  Future<Set<String>> readQuestionIds() async => (await _readState()).ids;
+
+  /// بصمات الأسئلة المقروءة — شوف [questionFingerprint].
+  Future<Set<String>> readQuestionFingerprints() async => (await _readState()).texts;
 
   /// المضيف شاف السؤال — منسجّله حتى ما يتكرر باللعبة الجاية. [bank] هو
-  /// أسئلة اللعبة الحالية (بعد فلتر المضيف) — منها منعرف إذا خلصت كلها.
+  /// أسئلة اللعبة الحالية (بعد فلتر المضيف) — منها منعرف إذا خلصت كلها،
+  /// ومنها منجيب نص السؤال حتى نسجّل بصمته.
   Future<void> markQuestionRead(String id, {required List<Question> bank}) async {
-    final read = await readQuestionIds();
-    final next = {...read, id};
+    final read = await _readState();
+    final ids = {...read.ids, id};
+    final texts = {...read.texts};
+    for (final q in bank) {
+      if (q.id == id) {
+        texts.add(questionFingerprint(q.text));
+        break;
+      }
+    }
     // خلصت كل الأسئلة؟ منبلّش دورة قراءة جديدة نظيفة.
-    final allRead = bank.isNotEmpty && bank.every((q) => next.contains(q.id) || q.isRead);
-    await _writeReadIds(allRead ? <String>{} : next);
+    final allRead = bank.isNotEmpty &&
+        bank.every((q) =>
+            q.isRead || ids.contains(q.id) || texts.contains(questionFingerprint(q.text)));
+    await _writeReadState(allRead ? _emptyRead : (ids: ids, texts: texts));
   }
 
   /// بنك جديد = دورة قراءة جديدة.
@@ -65,6 +81,10 @@ class BankStore {
 
   /// بيتأكد من ملف اختاره المضيف، وبيحفظه. بيرجّع رسالة الخطأ إذا الملف
   /// مش صالح — وبهاي الحالة البنك القديم بيضل شغّال.
+  ///
+  /// البنك الجديد بيبلّش دورة قراءة نظيفة، بس الأسئلة اللي جوّا الملف
+  /// و`isreaded` تبعها `true` بتضل محسوبة مقروءة — هيك بيرجع المضيف نسخة
+  /// حفظها بـ[exportBank] وما تتكرر عليه أسئلة سألها قبل التحديث.
   Future<BankResult> importBank(String text, String displayName) async {
     final result = QuestionBank.parse(text);
     if (result is BankSuccess) {
@@ -82,6 +102,28 @@ class BankStore {
     if (await _metaFile.exists()) await _metaFile.delete();
   }
 
+  /// البنك الحالي كملف JSON بنفس شكل الاستيراد، و`isreaded` معبّى من سجل
+  /// القراءة. المضيف بيحفظه قبل ما ينزّل نسخة جديدة أو يغيّر جهاز،
+  /// وبيستورده بعدها — فما تتكرر عليه الأسئلة اللي سألها.
+  Future<String> exportBank() async {
+    final all = await questions();
+    final read = await _readState();
+    final payload = [
+      for (final q in all)
+        {
+          'id': q.id,
+          'text': q.text,
+          'isreaded': q.isRead ||
+              read.ids.contains(q.id) ||
+              read.texts.contains(questionFingerprint(q.text)),
+          'answers': [
+            for (final a in q.answers) {'text': a.text, 'points': a.points},
+          ],
+        },
+    ];
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
   Future<String?> bankName() async {
     if (!await _bankFile.exists()) return null;
     final meta = await _readMeta();
@@ -95,8 +137,36 @@ class BankStore {
     return count is int ? count : 0;
   }
 
-  Future<void> _writeReadIds(Set<String> ids) async {
-    await _readIdsFile.writeAsString(jsonEncode(ids.toList()));
+  /// سجل القراءة من القرص. الشكل الحالي كائن (`{"v":2,...}`)، والشكل
+  /// القديم لستة معرّفات — منقبل الاتنين حتى ما يضيع سجل مضيف محدّث.
+  Future<ReadState> _readState() async {
+    if (!await _readIdsFile.exists()) return _emptyRead;
+    try {
+      final decoded = jsonDecode(await _readIdsFile.readAsString());
+      if (decoded is List) {
+        // الشكل القديم: معرّفات بس، بدون بصمات.
+        return (ids: decoded.whereType<String>().toSet(), texts: <String>{});
+      }
+      if (decoded is Map<String, dynamic>) {
+        final ids = decoded['ids'];
+        final texts = decoded['texts'];
+        return (
+          ids: ids is List ? ids.whereType<String>().toSet() : <String>{},
+          texts: texts is List ? texts.whereType<String>().toSet() : <String>{},
+        );
+      }
+      return _emptyRead;
+    } catch (_) {
+      return _emptyRead;
+    }
+  }
+
+  Future<void> _writeReadState(ReadState state) async {
+    await _readIdsFile.writeAsString(jsonEncode({
+      'v': 2,
+      'ids': state.ids.toList(),
+      'texts': state.texts.toList(),
+    }));
   }
 
   /// ملف تالف أو بشكل غير متوقع بيرجع `null` — يعني بدون اسم/عدد، نفس

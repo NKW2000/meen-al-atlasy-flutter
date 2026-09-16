@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../game/models.dart';
+import '../../network/room_code.dart';
 import '../components/buttons.dart';
 import '../components/seat_badge.dart';
 import '../arabic_numerals.dart';
@@ -26,6 +27,16 @@ const String sameNetworkHint = 'لازم الكل يكون على نفس الو�
 
 /// لما ما في عنوان واي فاي: نفس رسالة `PlayerController.enterCode`.
 const String noWifiHint = 'افتح الواي فاي أو نقطة الاتصال';
+
+/// كود الغرفة بأرقام عربية — اللاعب بيكتبه لما ما تبيّن الغرفة باللستة.
+String roomCodeOf(InternetAddress ip) {
+  try {
+    return encodeRoomCode(ip).arDigits();
+  } catch (_) {
+    // عنوان مش IPv4 — ما في كود نعرضه.
+    return '—';
+  }
+}
 
 void _noMove(String _, TeamId _) {}
 
@@ -203,12 +214,20 @@ class _NetworkStrip extends StatelessWidget {
             ),
             if (ip == null)
               const Pill(text: noWifiHint, color: FeudColors.pink, textColor: FeudColors.cream)
-            else
+            else ...[
               Pill(
                 text: 'الواي فاي: ${ip.address}',
                 color: FeudColors.stageAlt,
                 textColor: FeudColors.cream,
               ),
+              // كود الغرفة: لو ما بانت الغرفة عند حدا (راوتر بيفلتر البثّ)
+              // بيكتب هالخمس أرقام بشاشة «أي غرفة؟» وبيفوت مباشرة.
+              Pill(
+                text: 'الكود: ${roomCodeOf(ip)}',
+                color: FeudColors.gold,
+                textColor: FeudColors.ink,
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 4),

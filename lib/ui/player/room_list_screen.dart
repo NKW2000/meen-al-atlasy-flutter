@@ -23,12 +23,17 @@ class RoomListScreen extends StatelessWidget {
   final void Function(Room room) onPick;
   final VoidCallback onBack;
 
+  /// «اكتب الكود» — طريق احتياطي لما ما تبيّن الغرفة أبداً (راوتر بيفلتر
+  /// البثّ مثلاً). المضيف بيقرا الكود من شاشته. اختياري (المعرض ما بيمرّره).
+  final VoidCallback? onEnterCode;
+
   const RoomListScreen({
     super.key,
     required this.playerName,
     required this.rooms,
     required this.onPick,
     required this.onBack,
+    this.onEnterCode,
   });
 
   @override
@@ -96,7 +101,22 @@ class RoomListScreen extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 8),
-            _NetworkHint(),
+            Row(
+              children: [
+                Expanded(child: _NetworkHint()),
+                if (onEnterCode != null) ...[
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 180,
+                    child: SecondaryButton(
+                      text: 'اكتب كود الغرفة',
+                      onClick: onEnterCode!,
+                      accent: FeudColors.gold,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -156,6 +176,14 @@ class RoomListScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _NetworkHint(),
+            if (onEnterCode != null) ...[
+              const SizedBox(height: 10),
+              SecondaryButton(
+                text: 'اكتب كود الغرفة',
+                onClick: onEnterCode!,
+                accent: FeudColors.gold,
+              ),
+            ],
             const SizedBox(height: 12),
             PrimaryButton(text: 'رجوع', onClick: onBack, color: FeudColors.teal),
           ],

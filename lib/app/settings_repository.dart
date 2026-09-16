@@ -42,6 +42,7 @@ class SettingsRepository {
   GameSettings _cachedSettings = const GameSettings();
   List<Question> _cachedBank = const [];
   Set<String> _cachedReadIds = const {};
+  Set<String> _cachedReadTexts = const {};
 
   static const _keyRounds = 'rounds';
   static const _keyMultipliers = 'multipliers';
@@ -124,6 +125,7 @@ class SettingsRepository {
     _cachedSettings = await load();
     _cachedBank = await questions();
     _cachedReadIds = await readQuestionIds();
+    _cachedReadTexts = await readQuestionFingerprints();
   }
 
   /// أسئلة اللعبة: بنك المضيف إذا مستورد، وإلا البنك المرفق.
@@ -163,6 +165,13 @@ class SettingsRepository {
   /// الأسئلة اللي انقرأت قبل — ما بترجع لحد ما يخلص البنك.
   Future<Set<String>> readQuestionIds() => _bankStore.readQuestionIds();
 
+  /// بصمات الأسئلة المقروءة — بتخلّي القراءة تنجو من تحديث بدّل المعرّفات.
+  Future<Set<String>> readQuestionFingerprints() =>
+      _bankStore.readQuestionFingerprints();
+
+  /// البنك الحالي كملف JSON مع `isreaded` — للحفظ قبل تحديث/تنزيل من جديد.
+  Future<String> exportBank() => _bankStore.exportBank();
+
   /// المضيف شاف السؤال — منسجّله حتى ما يتكرر باللعبة الجاية.
   Future<void> markQuestionRead(String id) async {
     final filtered = await filteredQuestions();
@@ -183,8 +192,14 @@ class SettingsRepository {
     final filtered = await filteredQuestions(settings);
     final source = filtered.isNotEmpty ? filtered : await questions();
     final readIds = await readQuestionIds();
+    final readTexts = await readQuestionFingerprints();
     return GameState(
-      questions: QuestionBank.randomGame(settings.rounds, source, readIds: readIds),
+      questions: QuestionBank.randomGame(
+        settings.rounds,
+        source,
+        readIds: readIds,
+        readTexts: readTexts,
+      ),
       multipliers: settings.multipliersForRounds(),
       strikesToSteal: settings.strikesToSteal,
       answerLimitSeconds: settings.answerSeconds,
@@ -232,8 +247,12 @@ class SettingsRepository {
     final filtered = _filteredFromCache(settings);
     final source = filtered.isNotEmpty ? filtered : _cachedBank;
     return GameState(
-      questions:
-          QuestionBank.randomGame(settings.rounds, source, readIds: _cachedReadIds),
+      questions: QuestionBank.randomGame(
+        settings.rounds,
+        source,
+        readIds: _cachedReadIds,
+        readTexts: _cachedReadTexts,
+      ),
       multipliers: settings.multipliersForRounds(),
       strikesToSteal: settings.strikesToSteal,
       answerLimitSeconds: settings.answerSeconds,
@@ -251,7 +270,12 @@ class SettingsRepository {
   Question? freshQuestionSync() {
     final filtered = _filteredFromCache(_cachedSettings);
     final source = filtered.isNotEmpty ? filtered : _cachedBank;
-    final picked = QuestionBank.randomGame(1, source, readIds: _cachedReadIds);
+    final picked = QuestionBank.randomGame(
+      1,
+      source,
+      readIds: _cachedReadIds,
+      readTexts: _cachedReadTexts,
+    );
     return picked.isEmpty ? null : picked.first;
   }
 }

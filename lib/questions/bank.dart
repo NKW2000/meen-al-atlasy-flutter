@@ -27,6 +27,22 @@ class BankFailure extends BankResult {
   BankFailure(this.message);
 }
 
+/// بصمة السؤال: نصّه بعد تطبيع بسيط (بدون تشكيل ولا ترقيم، وبتوحيد
+/// الألف والياء والتاء المربوطة). سجل القراءة بيتحفظ بالبصمة كمان مش
+/// بالمعرّف لحاله، حتى يضل السؤال «مقروء» بعد تحديث التطبيق: بنسخة جديدة
+/// من البنك ممكن نفس السؤال ياخد `id` تاني، وبالمعرّف لحاله بيرجع ينسأل.
+String questionFingerprint(String text) => text
+    // تشكيل وتطويل
+    .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u0640]'), '')
+    .replaceAll(RegExp('[أإآٱ]'), 'ا')
+    .replaceAll('ى', 'ي')
+    .replaceAll('ة', 'ه')
+    // ترقيم وأي رمز تاني — مسافة
+    .replaceAll(RegExp(r'[^\u0621-\u064A\u0660-\u0669 0-9a-zA-Z]'), ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim()
+    .toLowerCase();
+
 class QuestionBank {
   static const String _asset = 'assets/questions/starter_questions.json';
 
@@ -173,16 +189,23 @@ class QuestionBank {
   }
 
   /// أسئلة لعبة وحدة — بتاخد من الأسئلة **اللي ما انقرأت** أول شي
-  /// ([readIds] هي المقروءة). إذا ما ضل كفاية غير مقروء، منرجع نستعمل
+  /// ([readIds] هي المقروءة، و[readTexts] بصماتها — شوف
+  /// [questionFingerprint]). إذا ما ضل كفاية غير مقروء، منرجع نستعمل
   /// البنك كله من جديد.
   static List<Question> randomGame(
     int rounds,
     List<Question> source, {
     Set<String> readIds = const {},
+    Set<String> readTexts = const {},
     Random? random,
   }) {
     final rnd = random ?? Random();
-    final unread = source.where((q) => !q.isRead && !readIds.contains(q.id)).toList();
+    final unread = source
+        .where((q) =>
+            !q.isRead &&
+            !readIds.contains(q.id) &&
+            !readTexts.contains(questionFingerprint(q.text)))
+        .toList();
     final picked = (List<Question>.from(unread)..shuffle(rnd)).take(rounds).toList();
     if (picked.length == rounds) return picked;
     // خلصت الأسئلة: منبلّش دورة جديدة على البنك كله.

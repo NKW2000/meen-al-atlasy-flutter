@@ -21,6 +21,14 @@ void main() {
     expect(GameSettings(rounds: 7).questionsNeeded(), 7);
   });
 
+  test('sixteen rounds are allowed and every round gets a multiplier', () {
+    final settings = GameSettings(rounds: 16).clamped();
+
+    expect(settings.rounds, 16);
+    expect(settings.questionsNeeded(), 16);
+    expect(settings.multipliersForRounds().length, 16);
+  });
+
   test('out of range values are pulled back into range', () {
     final settings = GameSettings(rounds: 99, strikesToSteal: 0).clamped();
 

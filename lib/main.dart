@@ -33,6 +33,7 @@ import 'network/room_beacon.dart';
 import 'network/room_discovery.dart';
 import 'ui/components/confirm_dialog.dart';
 import 'ui/components/error_snackbar.dart';
+import 'ui/components/name_prompt_dialog.dart';
 import 'ui/home/home_screen.dart';
 import 'ui/host/host_board_screen.dart';
 import 'ui/host/host_lobby_screen.dart';
@@ -431,6 +432,9 @@ class _PlayerRoomsRouteState extends State<_PlayerRoomsRoute> {
   PlayerController? _player;
   bool _navigated = false;
 
+  /// ديالوج كود الغرفة مفتوح — الطريق الاحتياطي لما ما تبيّن الغرفة.
+  bool _askingCode = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -464,14 +468,33 @@ class _PlayerRoomsRouteState extends State<_PlayerRoomsRoute> {
       builder: (context, _) => ErrorSnackbar(
         message: player.lastError,
         onShown: player.dismissError,
-        child: RoomListScreen(
-          playerName: player.pendingName ?? '',
-          rooms: player.rooms,
-          onPick: (room) => unawaited(player.enterRoom(room)),
-          onBack: () {
-            unawaited(player.stopDiscovery());
-            Navigator.of(context).pop();
-          },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            RoomListScreen(
+              playerName: player.pendingName ?? '',
+              rooms: player.rooms,
+              onPick: (room) => unawaited(player.enterRoom(room)),
+              onEnterCode: () => setState(() => _askingCode = true),
+              onBack: () {
+                unawaited(player.stopDiscovery());
+                Navigator.of(context).pop();
+              },
+            ),
+            if (_askingCode)
+              NamePromptDialog(
+                title: 'كود الغرفة',
+                initial: '',
+                hint: '٥ أرقام',
+                digitsOnly: true,
+                maxLength: 5,
+                onConfirm: (code) {
+                  setState(() => _askingCode = false);
+                  unawaited(player.enterCode(code));
+                },
+                onDismiss: () => setState(() => _askingCode = false),
+              ),
+          ],
         ),
       ),
     );

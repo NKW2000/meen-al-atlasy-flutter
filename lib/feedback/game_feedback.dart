@@ -48,36 +48,95 @@ const Map<Cue, List<int>> _patterns = {
   Cue.win: [0, 45, 60, 45, 60, 110],
 };
 
+/// مشغّل صوت واحد. مجرّد عن `audioplayers` لسبب واحد: ترتيب
+/// «حمّل بعدين شغّل» هو أصل باگ صوت الساعة، ولازم ينختبر بدون منصة صوت.
+abstract class CueAudio {
+  /// بيحمّل الملف ويجهّز المشغّل. **لازم تنستنى** قبل [restart].
+  Future<void> load(String asset);
+
+  /// بيرجّع الصوت لأوله ويشغّله.
+  Future<void> restart();
+
+  Future<void> stop();
+
+  Future<void> dispose();
+}
+
+/// المشغّل الحقيقي فوق `audioplayers`.
+class _AudioPlayersCue implements CueAudio {
+  final AudioPlayer _player = AudioPlayer();
+  final bool lowLatency;
+
+  _AudioPlayersCue({required this.lowLatency});
+
+  /// كل الإعدادات هون وبانتظار — `setPlayerMode`/`setSource` كلهم
+  /// غير متزامنين، وتشغيل قبل ما يخلصوا بيفشل بالسكوت.
+  @override
+  Future<void> load(String asset) async {
+    await _player.setPlayerMode(lowLatency ? PlayerMode.lowLatency : PlayerMode.mediaPlayer);
+    await _player.setReleaseMode(ReleaseMode.stop);
+    await _player.setSource(AssetSource(asset));
+  }
+
+  @override
+  Future<void> restart() async {
+    await _player.stop();
+    await _player.resume();
+  }
+
+  @override
+  Future<void> stop() => _player.stop();
+
+  @override
+  Future<void> dispose() => _player.dispose();
+}
+
+CueAudio _defaultAudio({required bool lowLatency}) => _AudioPlayersCue(lowLatency: lowLatency);
+
+typedef CueAudioFactory = CueAudio Function({required bool lowLatency});
+
 class GameFeedback {
-  final Map<Cue, AudioPlayer> _players = {};
+  final Map<Cue, CueAudio> _players = {};
+
+  /// تحميل كل مشغّل — `play` بتنستناه قبل ما تشغّل، فما في تشغيل على
+  /// مشغّل ملفه لسا ما وصل.
+  final Map<Cue, Future<void>> _loading = {};
 
   /// مجاري الساعة الشغّالة — `startClock()` بيرجّع رقم حتى نقدر نسكّتها.
-  final Map<int, AudioPlayer> _streams = {};
+  final Map<int, CueAudio> _streams = {};
   int _nextStream = 1;
   bool _released = false;
 
-  GameFeedback() {
-    AudioPlayer.global.setAudioContext(
-      AudioContext(
-        android: const AudioContextAndroid(
-          usageType: AndroidUsageType.game,
-          contentType: AndroidContentType.sonification,
-          audioFocus: AndroidAudioFocus.none,
-        ),
-        iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient, options: const {}),
-      ),
-    );
+  final CueAudioFactory _newAudio;
+
+  /// [configureSession] بتنطفّي بالاختبارات — ما في منصة صوت هناك.
+  GameFeedback({
+    this._newAudio = _defaultAudio,
+    bool configureSession = true,
+  }) {
+    if (configureSession) _configureSession();
     for (final entry in _files.entries) {
-      _players[entry.key] = _newPlayer(entry.value);
+      final audio = _newAudio(lowLatency: true);
+      _players[entry.key] = audio;
+      _loading[entry.key] = audio.load(entry.value).catchError((_) {});
     }
   }
 
-  AudioPlayer _newPlayer(String asset) {
-    final player = AudioPlayer()
-      ..setPlayerMode(PlayerMode.lowLatency)
-      ..setReleaseMode(ReleaseMode.stop);
-    unawaited(player.setSource(AssetSource(asset)).catchError((_) {}));
-    return player;
+  void _configureSession() {
+    try {
+      AudioPlayer.global.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            usageType: AndroidUsageType.game,
+            contentType: AndroidContentType.sonification,
+            audioFocus: AndroidAudioFocus.none,
+          ),
+          iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient, options: const {}),
+        ),
+      );
+    } catch (_) {
+      // جهاز بدون مشغّل صوت — الصوت بيسكت وباقي اللعبة بتكمّل.
+    }
   }
 
   /// صوت الخطأ حسب رقمه.
@@ -88,8 +147,10 @@ class GameFeedback {
     final player = _players[cue];
     if (player != null) {
       try {
-        await player.stop();
-        await player.resume();
+        // بينتهي فوراً بعد الإقلاع، وبيحمي أول تنبيه لو صار بسرعة.
+        await _loading[cue];
+        if (_released) return;
+        await player.restart();
       } catch (_) {
         // بدون صوت أحسن من انهيار اللعبة (جهاز بدون مشغّل مثلاً).
       }
@@ -102,10 +163,23 @@ class GameFeedback {
   int startClock() {
     final id = _nextStream++;
     if (_released) return id;
-    final player = _newPlayer(_files[Cue.clock]!);
-    _streams[id] = player;
-    unawaited(player.resume().catchError((_) {}));
+    // ملف الساعة ٥ ثواني — مشغّل عادي، مش لقطة `lowLatency` (SoundPool).
+    final audio = _newAudio(lowLatency: false);
+    _streams[id] = audio;
+    unawaited(_startStream(id, audio));
     return id;
+  }
+
+  /// حمّل بعدين شغّل. إذا انسكّرت المجرى بهالأثناء (اللاعب جاوب قبل ما
+  /// يخلص التحميل) ما منشغّل إشي.
+  Future<void> _startStream(int id, CueAudio audio) async {
+    try {
+      await audio.load(_files[Cue.clock]!);
+      if (_released || !identical(_streams[id], audio)) return;
+      await audio.restart();
+    } catch (_) {
+      // بدون دقّات أحسن من انهيار.
+    }
   }
 
   Future<void> stopStream(int streamId) async {

@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'broadcast_targets.dart';
 import 'multicast_lock.dart';
 import 'room_beacon.dart';
 
@@ -36,12 +37,30 @@ const Duration _roomTtl = Duration(seconds: 6);
 
 /// بيسمع بثّ [RoomBeacon] عبر UDP، ويحدّث [rooms] بالغرف الظاهرة حالياً —
 /// الغرف اللي ما وصلها بث جديد خلال [_roomTtl] بتنشال تلقائياً.
+///
+/// وكل ثانية كمان **بيسأل**: بيبعت حزمة صغيرة على [roomProbePort]، والمضيف
+/// بيجاوبها مباشرة (unicast) على منفذنا. هاد المسار هو اللي بيخلّي الغرفة
+/// تبيّن على الأجهزة اللي ما بيوصلها بثّ المضيف — توفير الطاقة بالأندرويد
+/// بيرمي حزم البثّ الواصلة، وكتير راوترات بتفلترها، بس الحزمة المباشرة
+/// بتوصل. فيكفي إنه اتجاه واحد يشتغل.
 class RoomDiscovery {
   /// عنوان الربط — افتراضياً كل الواجهات، وبيتغيّر لـ loopback بالاختبارات.
   final InternetAddress bindAddress;
 
-  RoomDiscovery({InternetAddress? bindAddress})
-      : bindAddress = bindAddress ?? InternetAddress.anyIPv4;
+  /// لوين منبعت السؤال — افتراضياً بثّ عام، وloopback بالاختبارات.
+  final InternetAddress probeTarget;
+
+  /// منفذ الاستماع ومنفذ الأسئلة — شوف [RoomBeacon.announcePort].
+  final int listenPort;
+  final int probePort;
+
+  RoomDiscovery({
+    InternetAddress? bindAddress,
+    InternetAddress? probeTarget,
+    this.listenPort = roomBeaconPort,
+    this.probePort = roomProbePort,
+  })  : bindAddress = bindAddress ?? InternetAddress.anyIPv4,
+        probeTarget = probeTarget ?? limitedBroadcast;
 
   final ValueNotifier<List<Room>> rooms = ValueNotifier<List<Room>>([]);
 
@@ -58,7 +77,7 @@ class RoomDiscovery {
     try {
       sock = await RawDatagramSocket.bind(
         bindAddress,
-        roomBeaconPort,
+        listenPort,
         reuseAddress: true,
         reusePort: false,
       );
@@ -70,14 +89,46 @@ class RoomDiscovery {
     sock.broadcastEnabled = true;
     _socket = sock;
 
-    sock.listen((event) {
-      if (event != RawSocketEvent.read) return;
-      final dg = sock.receive();
-      if (dg == null) return;
-      handlePacket(dg.address, dg.data);
-    });
+    sock.listen(
+      (event) {
+        if (event != RawSocketEvent.read) return;
+        final dg = sock.receive();
+        if (dg == null) return;
+        handlePacket(dg.address, dg.data);
+      },
+      // مقبس UDP بيرمي أخطاء غير متزامنة (واجهة اختفت، أو بثّ ما إله طريق
+      // — مثلاً واي فاي انقطع بنص اللعبة). بدون هالمعالج الخطأ بيطلع للمنطقة
+      // وبيوقّف البحث؛ منسجّله ومنكمّل، الحزمة الجاي بتحاول من جديد.
+      onError: (_) {},
+      cancelOnError: false,
+    );
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _publish());
+    unawaited(_probe());
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _publish();
+      unawaited(_probe());
+    });
+  }
+
+  /// *وين الغرف؟* — حزمة صغيرة للمضيفين. منبعتها بالبثّ العام وبالبثّ
+  /// الموجّه لكل واجهة، والجواب بيرجع مباشرة فما بيتأثر بفلترة البثّ.
+  Future<void> _probe() async {
+    final sock = _socket;
+    if (sock == null) return;
+    final payload = utf8.encode(jsonEncode({'probe': 1, 'version': 1}));
+    final targets = <InternetAddress>{
+      probeTarget,
+      if (!probeTarget.isLoopback) ...await directedBroadcasts(),
+    };
+    // stop() ممكن يكون سبقنا ونحنا عم نجمع العناوين — المقبس سكّر.
+    if (!identical(_socket, sock)) return;
+    for (final address in targets) {
+      try {
+        sock.send(payload, address, probePort);
+      } on SocketException {
+        // ما في شبكة مؤقتاً — منسأل تاني بالثانية الجاي.
+      }
+    }
   }
 
   /// حزمة منارة وصلت من [from]. عامة حتى تنختبر بدون مقابس.
@@ -93,6 +144,8 @@ class RoomDiscovery {
       // حزمة المنارة أصغر من ٢٠٠ بايت — أكبر من هيك مش منّا.
       if (data.length > 512) return;
       final j = jsonDecode(utf8.decode(data)) as Map<String, dynamic>;
+      // سؤال لاعب تاني وصلنا بالغلط — مش إعلان غرفة.
+      if (j['probe'] != null) return;
       final port = j['port'] as int;
       if (port <= 0 || port > 65535) return;
       // اسم الغرفة بينعرض بلستة اللاعب — منقصّه حتى ما تخرب الشاشة حزمة غريبة.

@@ -51,7 +51,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('HostLobbyScreen', () {
-    testWidgets('shows the Wi-Fi address and no room code', (tester) async {
+    testWidgets('shows the Wi-Fi address and the room code', (tester) async {
       await _pumpLandscape(
         tester,
         HostLobbyScreen(
@@ -68,7 +68,8 @@ void main() {
 
       expect(find.text('غرفة العيلة'), findsOneWidget);
       expect(find.text('الواي فاي: 192.168.43.1'), findsOneWidget);
-      expect(find.textContaining('كود الغرفة'), findsNothing);
+      // ٤٣×٢٥٦+١ = ١١٠٠٩ — اللاعب بيكتبه لو ما بانت الغرفة عنده باللستة.
+      expect(find.text('الكود: ١١٠٠٩'), findsOneWidget);
       expect(find.text('لازم الكل يكون على نفس الواي فاي أو نقطة اتصال المضيف'), findsOneWidget);
       expect(find.text('جاهزين — يلا نبلّش'), findsOneWidget);
     });
@@ -199,6 +200,55 @@ void main() {
       Room('غرفة العيلة', InternetAddress('192.168.1.5'), 47215),
       Room('غرفة الشباب', InternetAddress('192.168.1.9'), 47215),
     ];
+
+    testWidgets('offers the manual code as a way in when a room never shows',
+        (tester) async {
+      var asked = 0;
+      await _pumpLandscape(
+        tester,
+        RoomListScreen(
+          playerName: 'عبد الرحمن',
+          rooms: const [],
+          onPick: (_) {},
+          onEnterCode: () => asked++,
+          onBack: () {},
+        ),
+      );
+
+      await tester.tap(find.text('اكتب كود الغرفة'));
+      expect(asked, 1);
+    });
+
+    testWidgets('the manual code button shows in portrait too', (tester) async {
+      var asked = 0;
+      await _pumpPortrait(
+        tester,
+        RoomListScreen(
+          playerName: 'عبد الرحمن',
+          rooms: rooms,
+          onPick: (_) {},
+          onEnterCode: () => asked++,
+          onBack: () {},
+        ),
+      );
+
+      await tester.tap(find.text('اكتب كود الغرفة'));
+      expect(asked, 1);
+    });
+
+    testWidgets('without the callback there is no code button', (tester) async {
+      await _pumpLandscape(
+        tester,
+        RoomListScreen(
+          playerName: 'عبد الرحمن',
+          rooms: rooms,
+          onPick: (_) {},
+          onBack: () {},
+        ),
+      );
+
+      expect(find.text('اكتب كود الغرفة'), findsNothing);
+    });
 
     testWidgets('lists the rooms and picks one on tap', (tester) async {
       Room? picked;
