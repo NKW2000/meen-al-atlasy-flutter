@@ -31,6 +31,39 @@ void main() {
     expect(cuesFor(base, next), [Cue.win]);
   });
 
+  group('the answer button', () {
+    final playing = base.copyWith(
+      phase: RoundPhase.play,
+      controllingTeam: TeamId.team1,
+      turnPlayerId: 'a1',
+      answerSecondsLeft: 8,
+    );
+    final pressed = playing.copyWith(buzzedPlayerId: 'a1', clockPaused: true);
+
+    test('buzzes on the host so the host knows to listen and judge', () {
+      expect(cuesFor(playing, pressed, forHost: true), [Cue.buzz]);
+    });
+
+    test('stays silent on the player devices — one room, one speaker', () {
+      expect(cuesFor(playing, pressed), isEmpty);
+    });
+
+    test('does not buzz again while the clock is still paused', () {
+      expect(cuesFor(pressed, pressed, forHost: true), isEmpty);
+      // ثانية وقفت والعدّاد لسا واقف — ولا صوت.
+      expect(
+        cuesFor(pressed, pressed.copyWith(answerSecondsLeft: 7), forHost: true),
+        isEmpty,
+      );
+    });
+
+    test('a judgement after the press still plays its own cue', () {
+      // المضيف حكم «صح» — الكشف بيغلب صوت البزر.
+      final revealed = _reveal(pressed, 1).copyWith(clockPaused: false);
+      expect(cuesFor(pressed, revealed, forHost: true), [Cue.reveal]);
+    });
+  });
+
   test('the same award again is silent', () {
     final awarded = base.copyWith(lastAward: const Award(teamId: TeamId.team1, points: 10));
     expect(cuesFor(awarded, awarded), isEmpty);

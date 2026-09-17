@@ -234,8 +234,8 @@ void main() {
       expect(buzzes, 1);
     });
 
-    testWidgets('the answer button belongs to the player on turn, nobody else',
-        (tester) async {
+    testWidgets('everyone sees the answer button, but only the player on turn '
+        'can press it', (tester) async {
       final playing = base.copyWith(
         phase: RoundPhase.play,
         controllingTeam: TeamId.team1,
@@ -243,12 +243,33 @@ void main() {
         answerSecondsLeft: 10,
       );
 
-      // زميله بنفس الفريق ما بيشوف الزر.
-      await _pump(tester, screen(playing, playerId: 'a2'), portrait: true);
-      expect(find.text('بجاوب'), findsNothing);
+      // زميله بنفس الفريق: الزر مبيّن، بس الضغطة ما بتعمل إشي.
+      for (final viewer in ['a2', 'b1']) {
+        var buzzes = 0;
+        await _pump(
+          tester,
+          PlayerScreen(
+            state: playing,
+            playerId: viewer,
+            teamId: viewer.startsWith('a') ? TeamId.team1 : TeamId.team2,
+            mark: playing.markFor(viewer),
+            status: ConnectionStatus.connected,
+            onBuzz: () => buzzes++,
+          ),
+          portrait: true,
+        );
 
-      // ولا الخصم.
-      await _pump(tester, screen(playing, playerId: 'b1'), portrait: true);
+        expect(find.text('بجاوب'), findsOneWidget, reason: viewer);
+        await tester.tap(find.text('بجاوب'));
+        expect(buzzes, 0, reason: 'مش دورو — الزر مطفّي ($viewer)');
+      }
+    });
+
+    testWidgets('outside the answer phases there is no button at all',
+        (tester) async {
+      // بين الجولات ما في جواب.
+      final between = base.copyWith(phase: RoundPhase.roundEnd);
+      await _pump(tester, screen(between, playerId: 'a1'), portrait: true);
       expect(find.text('بجاوب'), findsNothing);
     });
 
@@ -451,8 +472,8 @@ void hostTurnChipTests() {
     expect(find.text(base.player('a2')!.name), findsOneWidget);
   });
 
-  testWidgets('when a player presses "I will answer" the host sees why the clock stopped',
-      (tester) async {
+  testWidgets('a player pressing "I will answer" puts no extra label on the host '
+      'board — the buzzer sound is the signal', (tester) async {
     final playing = base.copyWith(
       phase: RoundPhase.play,
       controllingTeam: TeamId.team1,
@@ -461,12 +482,11 @@ void hostTurnChipTests() {
       answerSecondsLeft: 6,
     );
 
-    await _pump(tester, board(playing));
-    expect(find.text('عم يجاوب'), findsNothing);
-
     // اللاعب دوس «بجاوب» — وصل للمضيف ووقف العدّاد.
     await _pump(tester, board(playing.copyWith(buzzedPlayerId: 'a2', clockPaused: true)));
-    expect(find.text('عم يجاوب'), findsOneWidget);
+
+    // بدون لافتة (طلب المستخدم) — الاسم بس، والصوت بيجي من cuesFor.
+    expect(find.text('عم يجاوب'), findsNothing);
     expect(find.text(base.player('a2')!.name), findsOneWidget);
   });
 }

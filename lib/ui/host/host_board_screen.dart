@@ -491,22 +491,6 @@ class HostTurnChip extends StatelessWidget {
               style: FeudText.titleMedium(context).copyWith(color: ink),
             ),
           ),
-          // اللاعب دوس «بجاوب» فالعدّاد واقف — المضيف لازم يشوف ليش وقف،
-          // ويعرف إنه عليه يسمع الجواب ويحكم.
-          if (state.clockPaused && current != null)
-            Container(
-              margin: const EdgeInsetsDirectional.only(start: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: FeudColors.cream,
-                borderRadius: BorderRadius.circular(FeudShape.pill),
-                border: Border.all(color: FeudColors.ink, width: 2),
-              ),
-              child: Text(
-                'عم يجاوب',
-                style: FeudText.labelMedium(context).copyWith(color: FeudColors.ink),
-              ),
-            ),
         ],
       ),
     );

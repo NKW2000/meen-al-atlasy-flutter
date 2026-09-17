@@ -15,8 +15,19 @@ int _revealedCount(GameState? state) =>
 
 /// شو لازم ينسمع بين لقطتين — نفس ترتيب `when` بالكوتلن: أول قاعدة
 /// بتنطبق بس (قائمة بعنصر واحد أو فاضية).
-List<Cue> cuesFor(GameState? previous, GameState next) {
+///
+/// [forHost] بتشغّل صوت البزر لما لاعب يدوس «بجاوب» — بيتشغّل على جهاز
+/// المضيف بس (هو مكبّر صوت الغرفة)، مش على ١٨ تلفون بنفس الوقت.
+List<Cue> cuesFor(GameState? previous, GameState next, {bool forHost = false}) {
   if (previous == null) return const [];
+  // لاعب دوس «بجاوب»: العدّاد وقف وفي حدا مسجّل ضاغط. صوت البزر عند
+  // المضيف هو الإشارة إنه في حدا عم يجاوب ولازم يحكم.
+  if (forHost &&
+      next.clockPaused &&
+      !previous.clockPaused &&
+      next.buzzedPlayerId != null) {
+    return const [Cue.buzz];
+  }
   final award = next.lastAward;
   // السرقة (طلب المستخدم): غلط الفريق التاني بيسمع صوت الغلط تبع المواجهة،
   // وصحّه صوت كشف الجواب — مش صوت الفوز.
@@ -36,7 +47,15 @@ class GameCues extends StatefulWidget {
   final GameState? state;
   final Widget child;
 
-  const GameCues({super.key, required this.state, required this.child});
+  /// شاشة المضيف — شوف [cuesFor].
+  final bool forHost;
+
+  const GameCues({
+    super.key,
+    required this.state,
+    required this.child,
+    this.forHost = false,
+  });
 
   @override
   State<GameCues> createState() => _GameCuesState();
@@ -54,7 +73,7 @@ class _GameCuesState extends State<GameCues> {
     if (next == null) return;
     final feedback = GameFeedbackScope.maybeOf(context);
     if (feedback != null) {
-      for (final cue in cuesFor(_last, next)) {
+      for (final cue in cuesFor(_last, next, forHost: widget.forHost)) {
         feedback.play(cue);
       }
     }

@@ -698,9 +698,11 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
                   onChangeQuestion: host.changeQuestion,
                 );
 
-          // الصوت والاهتزاز عند المضيف: أحداث اللعبة ودقّات آخر خمس ثواني.
+          // الصوت والاهتزاز عند المضيف: أحداث اللعبة، دقّات آخر خمس ثواني،
+          // وصوت البزر لما لاعب يدوس «بجاوب».
           return GameCues(
             state: state,
+            forHost: true,
             child: CountdownCues(
               seconds: math.max(state.answerSecondsLeft, state.choiceSecondsLeft),
               child: ErrorSnackbar(

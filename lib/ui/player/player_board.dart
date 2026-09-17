@@ -17,9 +17,11 @@ import '../host/host_board_screen.dart';
 import '../responsive.dart';
 import '../theme.dart';
 
-/// بمراحل اللعب في زر «بجاوب» جنب بلوك الدور (طلب المستخدم): اللاعب
-/// اللي عليه الدور بيدوسه فيوقف العدّاد، بيحكي جوابه بصوته، والمضيف بيحكم
-/// صح أو غلط. بدونه كان العدّاد بيكمّل وهو عم يحكي وبينحسب عليه غلط.
+/// بمراحل اللعب في زر «بجاوب» جنب بلوك الدور (طلب المستخدم): بيبيّن عند
+/// **كل** اللاعبين — مطفّي عند اللي مش دورهم وبيشتغل أول ما يجي دورهم، هيك
+/// الكل بيعرف وين الزر قبل ما يوصله الدور. اللي عليه الدور بيدوسه فيوقف
+/// العدّاد، بيحكي جوابه بصوته، والمضيف بيحكم صح أو غلط. بدونه كان العدّاد
+/// بيكمّل وهو عم يحكي وبينحسب عليه غلط.
 /// الزر الكبير بالمواجهة (سباق الضغط) بيضل بشاشته لحاله.
 class PlayerBoard extends StatelessWidget {
   final GameState? state;
@@ -28,9 +30,12 @@ class PlayerBoard extends StatelessWidget {
   final PlayerMark mark;
   final ConnectionStatus status;
 
-  /// «بجاوب» — بيطلع بس لما يكون الدور على صاحب الجهاز. `null` يعني ما
-  /// في زر (دور حدا تاني، أو مرحلة ما فيها جواب).
+  /// «بجاوب» — بينضغط بس لما يكون الدور على صاحب الجهاز. `null` مع
+  /// [showAnswer] يعني الزر مبيّن بس مطفّي (مش دورك).
   final VoidCallback? onAnswer;
+
+  /// بيبيّن الزر أصلاً — بمراحل الجواب (لعب، سرقة، مواجهة تانية).
+  final bool showAnswer;
 
   /// دوس الزر أصلاً والعدّاد واقف — الزر بيصير «عم تجاوب» ومطفّي.
   final bool answering;
@@ -43,6 +48,7 @@ class PlayerBoard extends StatelessWidget {
     required this.mark,
     required this.status,
     this.onAnswer,
+    this.showAnswer = false,
     this.answering = false,
   });
 
@@ -85,6 +91,7 @@ class PlayerBoard extends StatelessWidget {
                   mark: mark,
                   status: status,
                   onAnswer: onAnswer,
+                  showAnswer: showAnswer,
                   answering: answering,
                 ),
               ),
@@ -106,6 +113,7 @@ class TurnBlock extends StatelessWidget {
 
   /// شوف [PlayerBoard.onAnswer].
   final VoidCallback? onAnswer;
+  final bool showAnswer;
   final bool answering;
 
   const TurnBlock({
@@ -116,6 +124,7 @@ class TurnBlock extends StatelessWidget {
     required this.mark,
     required this.status,
     this.onAnswer,
+    this.showAnswer = false,
     this.answering = false,
   });
 
@@ -153,21 +162,6 @@ class TurnBlock extends StatelessWidget {
                   style: FeudText.titleMedium(context).copyWith(color: ink),
                 ),
               ),
-              // زر الجواب جنب البلوك: بيوقف العدّاد حتى يسمعك المضيف ويحكم.
-              if (onAnswer != null || answering) ...[
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 122,
-                  child: FlatButton(
-                    text: answering ? 'عم تجاوب' : 'بجاوب',
-                    color: answering ? FeudColors.gold : FeudColors.lime,
-                    textColor: FeudColors.ink,
-                    shadow: FeudColors.ink,
-                    enabled: !answering && onAnswer != null,
-                    onClick: onAnswer ?? () {},
-                  ),
-                ),
-              ],
             ] else
               Expanded(
                 child: Text(
@@ -176,6 +170,22 @@ class TurnBlock extends StatelessWidget {
                   style: FeudText.titleMedium(context).copyWith(color: ink),
                 ),
               ),
+            // زر الجواب جنب البلوك: بيوقف العدّاد حتى يسمعك المضيف ويحكم.
+            // مبيّن عند الكل — ومطفّي عند اللي مش دورهم.
+            if (showAnswer) ...[
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 122,
+                child: FlatButton(
+                  text: answering ? 'عم تجاوب' : 'بجاوب',
+                  color: answering ? FeudColors.gold : FeudColors.lime,
+                  textColor: FeudColors.ink,
+                  shadow: FeudColors.ink,
+                  enabled: !answering && onAnswer != null,
+                  onClick: onAnswer ?? () {},
+                ),
+              ),
+            ],
           ],
         ),
       ),
