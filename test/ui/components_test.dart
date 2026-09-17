@@ -391,6 +391,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('NamePromptDialog in digits mode accepts Arabic-Indic digits',
+      (tester) async {
+    String? confirmed;
+    await pumpComponent(
+      tester,
+      NamePromptDialog(
+        title: 'كود الغرفة',
+        initial: '',
+        hint: '٥ أرقام',
+        digitsOnly: true,
+        maxLength: 5,
+        onConfirm: (code) => confirmed = code,
+        onDismiss: () {},
+      ),
+    );
+
+    // الكيبورد العربي بيكتب هيك — كانت تنفلتر كلها وتضل الخانة فاضية.
+    await tester.enterText(find.byType(TextField), '١١٠٠٩');
+    await tester.pump();
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, '١١٠٠٩');
+
+    await tester.tap(find.text('تمام'));
+    await tester.pump();
+    expect(confirmed, '١١٠٠٩');
+
+    // بس الحروف لسا مرفوضة.
+    await tester.enterText(find.byType(TextField), 'ab١2');
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '١2');
+  });
+
   testWidgets(
       'NamePromptDialog: a leading space in an empty field does not throw and stays empty',
       (tester) async {

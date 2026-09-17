@@ -108,7 +108,12 @@ class _NamePromptDialogState extends State<NamePromptDialog> {
                         textInputAction: TextInputAction.done,
                         keyboardType: widget.digitsOnly ? TextInputType.number : null,
                         inputFormatters: [
-                          if (widget.digitsOnly) FilteringTextInputFormatter.digitsOnly,
+                          // أرقام ASCII أو عربية أو فارسية — الكيبورد العربي بيكتب
+                          // ٠-٩، و`digitsOnly` كان بيرفضها فما كان يبيّن ولا رقم.
+                          if (widget.digitsOnly)
+                            FilteringTextInputFormatter.allow(
+                              RegExp('[0-9٠-٩۰-۹]'),
+                            ),
                           TextInputFormatter.withFunction((oldValue, newValue) {
                             final trimmed = newValue.text.trimLeft();
                             // لازم نقصّ الـ selection لطول النص الجديد وإلا

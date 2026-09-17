@@ -17,10 +17,22 @@ String encodeRoomCode(InternetAddress ip) {
   return code.toString().padLeft(5, '0');
 }
 
+/// أرقام عربية (٠-٩) أو فارسية (۰-۹) → ASCII. الكود بيبيّن عند المضيف
+/// بأرقام عربية، والكيبورد العربي بيكتبها هيك — لازم تنقبل.
+String asciiDigits(String s) => s.replaceAllMapped(
+      RegExp('[٠-٩۰-۹]'),
+      (m) {
+        final c = m[0]!.codeUnitAt(0);
+        final base = c >= 0x06F0 ? 0x06F0 : 0x0660;
+        return String.fromCharCode(0x30 + (c - base));
+      },
+    );
+
 /// فك تشفير رمز الغرفة — إرجاع عنوان IP للمضيف باستخدام الأول والثاني من عنوان اللاعب.
-/// الرمز يجب أن يكون بالضبط 5 أرقام وقيمته لا تتجاوز 65535.
-InternetAddress? decodeRoomCode(String code, InternetAddress myIp) {
-  if (!RegExp(r'^\d{5}$').hasMatch(code)) return null;
+/// الرمز يجب أن يكون بالضبط 5 أرقام (عربي أو ASCII) وقيمته لا تتجاوز 65535.
+InternetAddress? decodeRoomCode(String rawCode, InternetAddress myIp) {
+  final code = asciiDigits(rawCode.trim());
+  if (!RegExp(r'^[0-9]{5}$').hasMatch(code)) return null;
   final value = int.tryParse(code);
   if (value == null || value > 65535) return null;
   if (myIp.type != InternetAddressType.IPv4) return null;

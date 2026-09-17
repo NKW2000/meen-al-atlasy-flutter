@@ -3,6 +3,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meen_al_atlasy/network/room_code.dart';
 
 void main() {
+  group('Arabic digits', () {
+    // الكود بيبيّن عند المضيف بأرقام عربية (١١٠٠٩)، والكيبورد العربي بيكتبها
+    // هيك — كانت تنرفض وما يقدر اللاعب يفوت بالكود أبداً.
+    test('a code typed with Arabic-Indic digits decodes like ASCII', () {
+      final mine = InternetAddress('192.168.1.7');
+      expect(decodeRoomCode('١١٠٠٩', mine), decodeRoomCode('11009', mine));
+      expect(decodeRoomCode('١١٠٠٩', mine)?.address, '192.168.43.1');
+    });
+
+    test('Persian digits and surrounding spaces are fine too', () {
+      final mine = InternetAddress('192.168.1.7');
+      expect(decodeRoomCode(' ۱۱۰۰۹ ', mine)?.address, '192.168.43.1');
+    });
+
+    test('asciiDigits maps every digit and leaves the rest alone', () {
+      expect(asciiDigits('٠١٢٣٤٥٦٧٨٩'), '0123456789');
+      expect(asciiDigits('۰۱۲۳۴۵۶۷۸۹'), '0123456789');
+      expect(asciiDigits('ab 12 ٣'), 'ab 12 3');
+    });
+  });
+
   group('encodeRoomCode', () {
     test('192.168.43.1 encodes to 11009', () {
       final ip = InternetAddress('192.168.43.1');
