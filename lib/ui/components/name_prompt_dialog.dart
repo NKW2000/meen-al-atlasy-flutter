@@ -40,8 +40,9 @@ class NamePromptDialog extends StatefulWidget {
 }
 
 class _NamePromptDialogState extends State<NamePromptDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
   final FocusNode _focus = FocusNode();
 
   @override
@@ -93,56 +94,76 @@ class _NamePromptDialogState extends State<NamePromptDialog> {
                 children: [
                   Text(
                     widget.title,
-                    style: FeudText.titleLarge(context).copyWith(color: FeudColors.gold),
+                    style: FeudText.titleLarge(context)
+                        .copyWith(color: FeudColors.gold),
                   ),
                   const SizedBox(height: 12),
                   BlockSkin(
                     color: FeudColors.cream,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focus,
-                        maxLength: widget.maxLength,
-                        maxLines: 1,
-                        textInputAction: TextInputAction.done,
-                        keyboardType: widget.digitsOnly ? TextInputType.number : null,
-                        inputFormatters: [
-                          // أرقام ASCII أو عربية أو فارسية — الكيبورد العربي بيكتب
-                          // ٠-٩، و`digitsOnly` كان بيرفضها فما كان يبيّن ولا رقم.
-                          if (widget.digitsOnly)
-                            FilteringTextInputFormatter.allow(
-                              RegExp('[0-9٠-٩۰-۹]'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      // TextField بدها Material فوقها — الديالوج بيوفّره لحاله
+                      // (نفس PlayerJoinScreen) بدل ما يتكل على Scaffold المسار،
+                      // فبيشتغل بالمعرض وبالاختبارات وبأي مكان.
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focus,
+                          maxLength: widget.maxLength,
+                          maxLines: 1,
+                          textInputAction: TextInputAction.done,
+                          keyboardType: widget.digitsOnly
+                              ? TextInputType.number
+                              : null,
+                          inputFormatters: [
+                            // أرقام ASCII أو عربية أو فارسية — الكيبورد العربي بيكتب
+                            // ٠-٩، و`digitsOnly` كان بيرفضها فما كان يبيّن ولا رقم.
+                            if (widget.digitsOnly)
+                              FilteringTextInputFormatter.allow(
+                                RegExp('[0-9٠-٩۰-۹]'),
+                              ),
+                            TextInputFormatter.withFunction((
+                              oldValue,
+                              newValue,
+                            ) {
+                              final trimmed = newValue.text.trimLeft();
+                              // لازم نقصّ الـ selection لطول النص الجديد وإلا
+                              // بترمي (RangeError) لما يكتب المستخدم مسافة
+                              // بحقل فاضي (النص بيقصر وبيضل الـ selection
+                              // أطول منه).
+                              final removed =
+                                  newValue.text.length - trimmed.length;
+                              final rawEnd = newValue.selection.end;
+                              final newEnd = rawEnd < 0
+                                  ? trimmed.length
+                                  : (rawEnd - removed).clamp(0, trimmed.length);
+                              return TextEditingValue(
+                                text: trimmed,
+                                selection: TextSelection.collapsed(
+                                  offset: newEnd,
+                                ),
+                              );
+                            }),
+                          ],
+                          style: FeudText.headlineSmall(context)
+                              .copyWith(color: FeudColors.ink),
+                          cursorColor: FeudColors.ink,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            counterText: '',
+                            hintText: widget.hint,
+                            hintStyle: FeudText.headlineSmall(context).copyWith(
+                              color: FeudColors.ink.withValues(alpha: 0.35),
                             ),
-                          TextInputFormatter.withFunction((oldValue, newValue) {
-                            final trimmed = newValue.text.trimLeft();
-                            // لازم نقصّ الـ selection لطول النص الجديد وإلا
-                            // بترمي (RangeError) لما يكتب المستخدم مسافة
-                            // بحقل فاضي (النص بيقصر وبيضل الـ selection
-                            // أطول منه).
-                            final removed = newValue.text.length - trimmed.length;
-                            final rawEnd = newValue.selection.end;
-                            final newEnd = rawEnd < 0
-                                ? trimmed.length
-                                : (rawEnd - removed).clamp(0, trimmed.length);
-                            return TextEditingValue(
-                              text: trimmed,
-                              selection: TextSelection.collapsed(offset: newEnd),
-                            );
-                          }),
-                        ],
-                        style: FeudText.headlineSmall(context).copyWith(color: FeudColors.ink),
-                        cursorColor: FeudColors.ink,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                          counterText: '',
-                          hintText: widget.hint,
-                          hintStyle: FeudText.headlineSmall(context)
-                              .copyWith(color: FeudColors.ink.withValues(alpha: 0.35)),
+                          ),
+                          onSubmitted: (_) => _submitIfValid(),
                         ),
-                        onSubmitted: (_) => _submitIfValid(),
                       ),
                     ),
                   ),

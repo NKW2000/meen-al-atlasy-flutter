@@ -17,6 +17,8 @@ import '../game/models.dart';
 import '../game/settings.dart';
 import '../network/player_client.dart';
 import '../network/room_discovery.dart';
+import '../ui/components/confirm_dialog.dart';
+import '../ui/components/name_prompt_dialog.dart';
 import '../ui/components/stage.dart';
 import '../ui/home/home_screen.dart';
 import '../ui/host/host_board_screen.dart';
@@ -26,6 +28,7 @@ import '../ui/intro/intro_screen.dart';
 import '../ui/player/player_join_screen.dart';
 import '../ui/player/player_screen.dart';
 import '../ui/player/room_list_screen.dart';
+import '../ui/settings/about_screen.dart';
 import '../ui/settings/bank_settings_screen.dart';
 import '../ui/show/game_over_screen.dart';
 import '../ui/show/round_opening.dart';
@@ -165,8 +168,9 @@ List<_DemoScreen> _demoScreens(
     ),
     _DemoScreen(
       'الإعدادات العامة',
-      (_) => BankSettingsScreen(settings: repository, onBack: () {}),
+      (_) => BankSettingsScreen(settings: repository, onBack: () {}, onAbout: () {}),
     ),
+    _DemoScreen('عن التطبيق', (_) => AboutScreen(onBack: () {})),
     _DemoScreen(
       'إعدادات المضيف',
       (_) => HostSettingsScreen(
@@ -251,7 +255,33 @@ List<_DemoScreen> _demoScreens(
         playerName: 'عبد الرحمن',
         rooms: rooms,
         onPick: (_) {},
+        onEnterCode: () {},
         onBack: () {},
+      ),
+    ),
+    _DemoScreen(
+      'كود الغرفة',
+      // نفس تركيب `_PlayerRoomsRoute`: الديالوج فوق لستة فاضية (ما بانت غرفة).
+      (_) => Stack(
+        fit: StackFit.expand,
+        children: [
+          RoomListScreen(
+            playerName: 'عبد الرحمن',
+            rooms: const [],
+            onPick: (_) {},
+            onEnterCode: () {},
+            onBack: () {},
+          ),
+          NamePromptDialog(
+            title: 'كود الغرفة',
+            initial: '',
+            hint: '٥ أرقام',
+            digitsOnly: true,
+            maxLength: 5,
+            onConfirm: (_) {},
+            onDismiss: () {},
+          ),
+        ],
       ),
     ),
     _DemoScreen(
@@ -288,6 +318,42 @@ List<_DemoScreen> _demoScreens(
       ),
     ),
     _DemoScreen(
+      'اللاعب — مش دوره',
+      // الدور على هناء (a2)؛ عبد الرحمن (a1) بيشوف الزر مطفّي.
+      (_) => PlayerScreen(
+        state: demoState(maskQuestion: true),
+        playerId: 'a1',
+        teamId: TeamId.team1,
+        mark: PlayerMark.idle,
+        status: ConnectionStatus.connected,
+        onBuzz: () {},
+      ),
+    ),
+    _DemoScreen(
+      'اللاعب — عم يجاوب',
+      // دوس «بجاوب»: العدّاد واقف والزر صار «عم تجاوب».
+      (_) => PlayerScreen(
+        state: demoState(maskQuestion: true).copyWith(buzzedPlayerId: 'a2', clockPaused: true),
+        playerId: 'a2',
+        teamId: TeamId.team1,
+        mark: PlayerMark.buzzed,
+        status: ConnectionStatus.connected,
+        onBuzz: () {},
+      ),
+    ),
+    _DemoScreen(
+      'اللاعب — سرقة',
+      (_) => PlayerScreen(
+        state: demoState(phase: RoundPhase.steal, maskQuestion: true, strikes: 3)
+            .copyWith(controllingTeam: TeamId.team2, turnPlayerId: 'a2', answerSecondsLeft: 9),
+        playerId: 'a2',
+        teamId: TeamId.team1,
+        mark: PlayerMark.armed,
+        status: ConnectionStatus.connected,
+        onBuzz: () {},
+      ),
+    ),
+    _DemoScreen(
       'اللاعب — غلط',
       (_) => PlayerScreen(
         state: demoState(maskQuestion: true, strikes: 3),
@@ -296,6 +362,32 @@ List<_DemoScreen> _demoScreens(
         mark: PlayerMark.wrong,
         status: ConnectionStatus.connected,
         onBuzz: () {},
+      ),
+    ),
+    _DemoScreen(
+      'انقطع الاتصال',
+      // نفس `_PlayerBuzzerRoute` بعد ما تفشل محاولات الرجوع التلقائي.
+      (_) => Stack(
+        fit: StackFit.expand,
+        children: [
+          PlayerScreen(
+            state: demoState(maskQuestion: true),
+            playerId: 'a2',
+            teamId: TeamId.team1,
+            mark: PlayerMark.idle,
+            status: ConnectionStatus.disconnected,
+            onBuzz: () {},
+          ),
+          ConfirmDialog(
+            title: 'انقطعت عن اللعبة',
+            message: 'بتقدر ترجع لنفس اللعبة، أو تطلع وتبلّش من جديد.',
+            confirmText: 'ارجع لللعبة',
+            dismissText: 'اطلع وابدأ من جديد',
+            confirmColor: FeudColors.lime,
+            onConfirm: () {},
+            onDismiss: () {},
+          ),
+        ],
       ),
     ),
     _DemoScreen(
