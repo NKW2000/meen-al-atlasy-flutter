@@ -201,6 +201,11 @@ sealed class HostMessage {
             playerId: json['playerId'] as String,
             teamId: TeamIdX.fromWire(json['teamId'] as String),
           );
+        case 'clock':
+          return ClockUpdate(
+            answerSecondsLeft: json['answerSecondsLeft'] as int,
+            choiceSecondsLeft: json['choiceSecondsLeft'] as int,
+          );
         default:
           throw FormatException('Unknown HostMessage type: $type');
       }
@@ -226,6 +231,39 @@ class StateUpdate extends HostMessage {
 
   @override
   int get hashCode => state.hashCode;
+}
+
+/// ثانية مرقت عالعدّاد وما تغيّر غيرها.
+///
+/// حالة اللعبة كاملة بتنبعت بكل حدث، بس العدّاد بيتغيّر **كل ثانية** —
+/// وببعتها كاملة كل ثانية لـ١٨ جهاز بيصير الحمل على الواي فاي أكبر من
+/// اللزوم، وبيأخّر وصول الضغطة. فالتيك لحاله بيمشي برسالة زغيرة،
+/// والحالة الكاملة بتنبعت بس لما يتغيّر إشي تاني (مثلاً خلص الوقت).
+class ClockUpdate extends HostMessage {
+  final int answerSecondsLeft;
+  final int choiceSecondsLeft;
+
+  ClockUpdate({
+    required this.answerSecondsLeft,
+    required this.choiceSecondsLeft,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'clock',
+        'answerSecondsLeft': answerSecondsLeft,
+        'choiceSecondsLeft': choiceSecondsLeft,
+      };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ClockUpdate &&
+          other.answerSecondsLeft == answerSecondsLeft &&
+          other.choiceSecondsLeft == choiceSecondsLeft);
+
+  @override
+  int get hashCode => Object.hash(answerSecondsLeft, choiceSecondsLeft);
 }
 
 /// المضيف عيّن لاعب لفريق ما.

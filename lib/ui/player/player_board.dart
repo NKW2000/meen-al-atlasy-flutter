@@ -166,7 +166,9 @@ String connectionLabel(ConnectionStatus status) => switch (status) {
   ConnectionStatus.idle => 'غير متصل',
   ConnectionStatus.connecting => 'جاري البحث عن المضيف...',
   ConnectionStatus.connected => 'متصل',
-  ConnectionStatus.disconnected => 'انقطع الاتصال',
+  // الانقطاع المش مقصود بيتبعه رجوع تلقائي (PlayerController) — فمنقول
+  // للاعب إنه عم نرجّعه، مش بس إنه انقطع.
+  ConnectionStatus.disconnected => 'انقطع الاتصال — عم نرجّعك',
 };
 
 String statusLine(PlayerMark mark, GameState? state, TeamId? teamId, ConnectionStatus status) {

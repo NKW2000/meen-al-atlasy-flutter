@@ -391,7 +391,7 @@ class HostController extends ChangeNotifier {
         return;
       }
       if (current.answerSecondsLeft > 0 || current.choiceSecondsLeft > 0) {
-        _applyAndBroadcast(const Tick());
+        _tickAndBroadcast(current);
       }
     });
   }
@@ -399,6 +399,28 @@ class HostController extends ChangeNotifier {
   void _stopClock() {
     _clockTimer?.cancel();
     _clockTimer = null;
+  }
+
+  /// ثانية عالعدّاد. إذا ما تغيّر غير العدّاد منبعت [ClockUpdate] الزغيرة
+  /// بدل الحالة كاملة — شوف سبب الحجم هناك. وإذا الثانية غيّرت إشي تاني
+  /// (خلص الوقت فصار خطأ، أو انتقل الدور) منبعت الحالة كاملة متل أي حدث.
+  void _tickAndBroadcast(GameState before) {
+    final after = _engine.apply(const Tick());
+    final onlyClockMoved = after.copyWith(
+          answerSecondsLeft: before.answerSecondsLeft,
+          choiceSecondsLeft: before.choiceSecondsLeft,
+        ) ==
+        before;
+    if (onlyClockMoved) {
+      server.broadcast(ClockUpdate(
+        answerSecondsLeft: after.answerSecondsLeft,
+        choiceSecondsLeft: after.choiceSecondsLeft,
+      ));
+    } else {
+      _noteQuestionShown(after);
+      server.broadcast(StateUpdate(state: after.maskedForPlayers()));
+    }
+    notifyListeners();
   }
 
   void _applyAndBroadcast(GameEvent event) {

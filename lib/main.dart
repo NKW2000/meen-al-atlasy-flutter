@@ -529,10 +529,22 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
 
   /// `LaunchedEffect(status) { if (DISCONNECTED) showLeft = true }`.
   void _onPlayerChanged() {
-    final status = _player!.status;
+    final player = _player!;
+    // خلصت محاولات الرجوع التلقائي وما زبطت — هلق منسأل.
+    if (!player.reconnecting &&
+        player.status == ConnectionStatus.disconnected &&
+        !_showLeft) {
+      setState(() => _showLeft = true);
+      return;
+    }
+    final status = player.status;
     if (status == _lastStatus) return;
     _lastStatus = status;
-    if (status == ConnectionStatus.disconnected && !_showLeft) {
+    // انقطاع مش مقصود: المتحكّم عم يحاول يرجّعنا لحالنا، فما منسأل اللاعب
+    // إلا إذا فشلت المحاولات — انقطاع ثانية أو ثانتين ما بيوقف اللعب.
+    if (status == ConnectionStatus.disconnected &&
+        !_showLeft &&
+        !_player!.reconnecting) {
       setState(() => _showLeft = true);
     }
   }

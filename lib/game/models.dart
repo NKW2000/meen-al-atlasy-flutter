@@ -902,9 +902,20 @@ extension GameStateDerived on GameState {
 
   /// نسخة الحالة اللي بتنبعت لأجهزة اللاعبين: بدون نص السؤال وبدون نصوص
   /// الأجوبة المخفية. اللاعب بيسمع السؤال من المضيف، وبيشوف خانات مرقّمة بس.
+  ///
+  /// وبأخفّ حجم ممكن: الحزمة هاي بتنبعت لكل جهاز **بكل حدث وكل ثانية**،
+  /// فحجمها × عدد اللاعبين هو الحمل على الواي فاي — وهو اللي بيأخّر وصول
+  /// الضغطة بغرفة كبيرة. فما منبعت غير اللي بينعرض فعلاً:
+  /// - جولات تانية: بدون أجوبة أصلاً (اللاعب بس بدّه عددها لـ«جولة ٣ من ١٦»).
+  /// - جواب مخفي: بدون نص وبدون نقاط (الخانة المقفلة ما بتعرض ولا وحدة،
+  ///   ونقاط جواب لسا ما انكشف بتلمّح لجوابه).
   GameState maskedForPlayers() => copyWith(
-        // نص السؤال ما بيوصل ولا جهاز لاعب — بيسمعوه من المضيف بس.
-        questions: questions.map((q) => _maskQuestion(q, hideText: true)).toList(),
+        questions: [
+          for (final (index, q) in questions.indexed)
+            index == currentQuestionIndex
+                ? _maskQuestion(q, hideText: true)
+                : _strippedQuestion(q),
+        ],
       );
 }
 
@@ -913,9 +924,14 @@ Question _maskQuestion(Question question, {required bool hideText}) =>
       text: hideText ? '' : question.text,
       // الأجوبة المخفية ما بتنبعت أبداً — اللوح بيعرض خانات فاضية.
       answers: question.answers
-          .map((a) => a.revealed ? a : a.copyWith(text: ''))
+          .map((a) => a.revealed ? a : a.copyWith(text: '', points: 0))
           .toList(),
     );
+
+/// جولة مش الحالية: اللاعب ما بيعرض منها ولا إشي، بس عددها بيبيّن
+/// بـ«جولة ٣ من ١٦» — فمنبعتها فاضية.
+Question _strippedQuestion(Question question) =>
+    question.copyWith(text: '', answers: const []);
 
 bool listEq<T>(List<T> a, List<T> b) {
   if (identical(a, b)) return true;

@@ -132,6 +132,16 @@ class PlayerClient implements PlayerTransport {
       switch (message) {
         case StateUpdate(:final state):
           this.state.value = state;
+        case ClockUpdate(:final answerSecondsLeft, :final choiceSecondsLeft):
+          // تيك لحاله: منحدّث العدّاد على آخر حالة عنا بدل ما توصلنا الحالة
+          // كاملة كل ثانية. قبل أول حالة ما في شي نحدّثه.
+          final current = state.value;
+          if (current != null) {
+            state.value = current.copyWith(
+              answerSecondsLeft: answerSecondsLeft,
+              choiceSecondsLeft: choiceSecondsLeft,
+            );
+          }
         case Assigned(:final playerId, :final teamId):
           this.playerId.value = playerId;
           this.teamId.value = teamId;

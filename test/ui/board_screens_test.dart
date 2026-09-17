@@ -212,7 +212,7 @@ void main() {
         screen(null, status: ConnectionStatus.disconnected),
         portrait: true,
       );
-      expect(find.text('انقطع الاتصال'), findsOneWidget);
+      expect(find.text('انقطع الاتصال — عم نرجّعك'), findsOneWidget);
     });
   });
 

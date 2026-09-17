@@ -307,6 +307,68 @@ void main() {
     expect(controller.lastError, isNull);
   });
 
+  test('an accidental drop reconnects on its own, without asking the player',
+      () async {
+    await connect();
+    controller.join('ليلى');
+    expect(transport.rejoinCalls, 0);
+
+    // انقطع الواي فاي لثانية — المضيف بيضل ماسك مكان اللاعب ونقاطه.
+    transport.status.value = ConnectionStatus.disconnected;
+    expect(controller.reconnecting, isTrue, reason: 'لازم يحاول قبل ما يسأل');
+
+    // أول محاولة بعد ثانية.
+    await Future.delayed(const Duration(milliseconds: 1200));
+
+    expect(transport.rejoinCalls, greaterThanOrEqualTo(1));
+    expect(controller.status, ConnectionStatus.connected);
+    expect(controller.reconnecting, isFalse);
+  });
+
+  test('it keeps trying a few times, then stops asking the player to wait',
+      () async {
+    await connect();
+    controller.join('ليلى');
+    transport.throwOnRejoin = true;
+
+    transport.status.value = ConnectionStatus.disconnected;
+    // ١+٢+٣+٤+٥ ثواني بين المحاولات — منستنى كفاية لكلهم.
+    await Future.delayed(const Duration(seconds: 16));
+
+    expect(transport.rejoinCalls, 5);
+    // خلصت المحاولات — هلق الشاشة بتسأل اللاعب.
+    expect(controller.reconnecting, isFalse);
+    expect(controller.status, ConnectionStatus.disconnected);
+  }, timeout: const Timeout(Duration(seconds: 40)));
+
+  test('leaving on purpose never triggers an automatic rejoin', () async {
+    await connect();
+    controller.join('ليلى');
+    await controller.leave();
+
+    await Future.delayed(const Duration(milliseconds: 1400));
+
+    expect(transport.rejoinCalls, 0);
+    expect(controller.reconnecting, isFalse);
+  });
+
+  test('a manual rejoin after the tries ran out starts the count over',
+      () async {
+    await connect();
+    controller.join('ليلى');
+    transport.throwOnRejoin = true;
+    transport.status.value = ConnectionStatus.disconnected;
+    await Future.delayed(const Duration(seconds: 16));
+    expect(transport.rejoinCalls, 5);
+
+    // اللاعب دوس «ارجع لللعبة» — منجرب من جديد.
+    transport.throwOnRejoin = false;
+    await controller.rejoin();
+
+    expect(transport.rejoinCalls, 6);
+    expect(controller.status, ConnectionStatus.connected);
+  }, timeout: const Timeout(Duration(seconds: 40)));
+
   test('rejoin does nothing before a name was ever set', () async {
     await controller.rejoin();
     expect(transport.rejoinCalls, equals(0));

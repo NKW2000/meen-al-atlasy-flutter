@@ -55,8 +55,12 @@ void main() {
     expect(question.text, '');
     expect(question.answers[0].text, 'الأول');
     expect(question.answers.skip(1).every((a) => a.text.isEmpty), isTrue);
-    // النقاط بتضل ظاهرة — اللوح بيعرض قيمة كل خانة مخفية.
-    expect(question.answers[1].points, 30);
+    // ولا نقاط كمان: عند اللاعب الخانة المخفية رقم بنصّها وبس
+    // (`_HiddenFace` بـ`answer_slot.dart`)، فنقاطها ما إلها شغل عنده —
+    // وإرسالها كان بيلمّح لقيمة جواب لسا ما انكشف. لوح المضيف بياخد
+    // الحالة كاملة مش المقنّعة، فهو بيضل يشوف النقاط.
+    expect(question.answers[1].points, 0);
+    expect(question.answers[0].points, 40); // المكشوف بينبعت كامل
   });
 
   test('the next round hides its question again', () {

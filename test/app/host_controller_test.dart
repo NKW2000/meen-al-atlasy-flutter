@@ -603,6 +603,48 @@ void main() {
     );
   });
 
+  test('a plain second on the clock sends the small packet, not the whole state',
+      () async {
+    final vm = controller(tick: const Duration(milliseconds: 10));
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+    buzz(transport, 'ep-a');
+    await pump();
+    vm.judgeCorrect(0); // -> playOrPass، العدّاد ٥ ثواني
+    expect(vm.state.choiceSecondsLeft, equals(5));
+
+    final statesBefore = transport.broadcasts.whereType<StateUpdate>().length;
+    await Future.delayed(const Duration(milliseconds: 25));
+
+    // مرقت ثواني: وصلت حزم عدّاد، وما انبعتت حالة كاملة بلا داعي.
+    final clocks = transport.broadcasts.whereType<ClockUpdate>().toList();
+    expect(clocks, isNotEmpty);
+    expect(transport.broadcasts.whereType<StateUpdate>().length, statesBefore);
+    expect(clocks.last.choiceSecondsLeft, lessThan(5));
+  });
+
+  test('a second that changes more than the clock still sends the full state',
+      () async {
+    final vm = controller(tick: const Duration(milliseconds: 10));
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+    buzz(transport, 'ep-a');
+    await pump();
+    vm.judgeCorrect(0);
+    final statesBefore = transport.broadcasts.whereType<StateUpdate>().length;
+
+    // خلّي العدّاد يوصل للصفر — هناك الثانية بتغيّر المرحلة كمان.
+    await Future.delayed(const Duration(milliseconds: 120));
+
+    expect(vm.state.choiceSecondsLeft, equals(0));
+    expect(
+      transport.broadcasts.whereType<StateUpdate>().length,
+      greaterThan(statesBefore),
+    );
+  });
+
   test('endGame stops the clock', () async {
     final vm = controller(tick: const Duration(milliseconds: 10));
     join(transport, ['ep-a', 'ep-b']);

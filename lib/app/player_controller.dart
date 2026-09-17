@@ -58,10 +58,31 @@ class PlayerController extends ChangeNotifier {
   /// عم ندوّر على غرف حالياً — بديل حالة `SEARCHING` الأصلية (حكم ٥).
   bool _discovering = false;
 
+  /// عم نحاول نرجع لحالنا بعد انقطاع مش مقصود.
+  bool _reconnecting = false;
+
+  /// المحاولة رقم كم — منوقف بعد [_maxAutoRejoins].
+  int _rejoinAttempt = 0;
+  Timer? _rejoinTimer;
+
+  /// اللاعب طلع بإرادته — ما منحاول نرجّعه.
+  bool _leftOnPurpose = false;
+
   List<Room> _rooms = [];
   String? _lastError;
 
   bool get discovering => _discovering;
+
+  /// عم نرجع للعبة لحالنا — الشاشة بتقول «عم نرجّعك…» بدل ما تسأل فوراً.
+  bool get reconnecting => _reconnecting;
+
+  /// كم مرة منحاول نرجع لحالنا قبل ما نسأل اللاعب. انقطاع الواي فاي
+  /// القصير (جهاز نام، أو إشارة ضعيفة لثانية) بيخلص قبل هالمدة، فاللاعب
+  /// ما بيحس فيه أصلاً.
+  static const int _maxAutoRejoins = 5;
+
+  /// بين محاولة ومحاولة — بيطلع مع كل محاولة (١، ٢، ٣… ثواني).
+  static Duration _rejoinDelay(int attempt) => Duration(seconds: attempt.clamp(1, 5));
   List<Room> get rooms => _rooms;
   GameState? get state => client.state.value;
   ConnectionStatus get status => client.status.value;
@@ -146,6 +167,9 @@ class PlayerController extends ChangeNotifier {
   }
 
   Future<void> _connect(InternetAddress host, int port, String name) async {
+    // اتصال جديد = بداية نظيفة لعدّاد المحاولات.
+    _leftOnPurpose = false;
+    _rejoinAttempt = 0;
     try {
       await client.connect(
         host: host,
@@ -207,6 +231,12 @@ class PlayerController extends ChangeNotifier {
     _discovering = false;
     _rooms = [];
     _lastError = null;
+    // طلوع بإرادته — منوقف أي محاولة رجوع تلقائي.
+    _leftOnPurpose = true;
+    _reconnecting = false;
+    _rejoinAttempt = 0;
+    _rejoinTimer?.cancel();
+    _rejoinTimer = null;
     await discovery.stop();
     await client.leave();
     notifyListeners();
@@ -217,6 +247,10 @@ class PlayerController extends ChangeNotifier {
   Future<void> rejoin() async {
     if (_pendingName == null) return;
     _lastError = null;
+    _leftOnPurpose = false;
+    _rejoinAttempt = 0;
+    _rejoinTimer?.cancel();
+    _rejoinTimer = null;
     notifyListeners();
     try {
       await client.rejoin();
@@ -236,10 +270,55 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _onChanged() => notifyListeners();
+  void _onChanged() {
+    _watchForDrop();
+    notifyListeners();
+  }
+
+  /// انقطع الاتصال وما كنا طالعين بإرادتنا؟ منحاول نرجع لحالنا.
+  ///
+  /// المضيف بيحتفظ باللاعب «منقطع» بنفس رقمه ونقاطه، وبيعيد ربطه بمعرّفه
+  /// (أو باسمه) — فالرجوع بيرجّعه لنفس مكانه بالضبط، حتى واللعبة شغّالة.
+  void _watchForDrop() {
+    final status = client.status.value;
+    if (status == ConnectionStatus.connected) {
+      _rejoinAttempt = 0;
+      if (_reconnecting) _reconnecting = false;
+      _rejoinTimer?.cancel();
+      _rejoinTimer = null;
+      return;
+    }
+    if (status != ConnectionStatus.disconnected) return;
+    if (_leftOnPurpose || _pendingName == null) return;
+    if (_rejoinTimer != null) return;
+    if (_rejoinAttempt >= _maxAutoRejoins) {
+      // خلصت المحاولات — هلق بس منخلي الشاشة تسأل اللاعب.
+      _reconnecting = false;
+      return;
+    }
+
+    _rejoinAttempt++;
+    _reconnecting = true;
+    _rejoinTimer = Timer(_rejoinDelay(_rejoinAttempt), () async {
+      _rejoinTimer = null;
+      if (_leftOnPurpose || client.status.value == ConnectionStatus.connected) return;
+      try {
+        await client.rejoin();
+      } catch (_) {
+        // ما زبطت — منجرب تاني تحت.
+      }
+      // لازم نعيد الجدولة من هون: لو ضلّت الحالة «منقطع» ما بيجي ولا
+      // إشعار تغيّر من العميل، فما في شي تاني بيشغّل المحاولة الجاي.
+      _watchForDrop();
+      notifyListeners();
+    });
+  }
 
   @override
   void dispose() {
+    _leftOnPurpose = true;
+    _rejoinTimer?.cancel();
+    _rejoinTimer = null;
     discovery.rooms.removeListener(_onRoomsChanged);
     client.state.removeListener(_onChanged);
     client.status.removeListener(_onChanged);
