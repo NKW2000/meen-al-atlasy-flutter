@@ -84,16 +84,44 @@ class PlayerBoard extends StatelessWidget {
                 revealHiddenText: false,
                 // بلوك الدور بنفس ارتفاع خانات الأجوبة بالضبط. نقاط الفرق
                 // مش هون — بتبيّن بشاشة النتيجة بين الجولات.
-                footer: TurnBlock(
-                  state: state,
-                  playerId: playerId,
-                  teamId: teamId,
-                  mark: mark,
-                  status: status,
-                  onAnswer: onAnswer,
-                  showAnswer: showAnswer,
-                  answering: answering,
-                ),
+                //
+                // بمراحل الجواب الصف نفسه تبع المضيف: زر «بجاوب» عاليسار
+                // وبلوك الدور عاليمين، نصّ ونصّ. الصف مثبّت LTR حتى
+                // «يسار/يمين» ما تنقلب بالـ RTL — نفس `HostGameBoardScreen`.
+                footer: showAnswer
+                    ? Row(
+                        textDirection: TextDirection.ltr,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: FlatButton(
+                              text: answering ? 'عم تجاوب' : 'بجاوب',
+                              color: answering ? FeudColors.gold : FeudColors.lime,
+                              textColor: FeudColors.ink,
+                              shadow: FeudColors.ink,
+                              enabled: !answering && onAnswer != null,
+                              onClick: onAnswer ?? () {},
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TurnBlock(
+                              state: state,
+                              playerId: playerId,
+                              teamId: teamId,
+                              mark: mark,
+                              status: status,
+                            ),
+                          ),
+                        ],
+                      )
+                    : TurnBlock(
+                        state: state,
+                        playerId: playerId,
+                        teamId: teamId,
+                        mark: mark,
+                        status: status,
+                      ),
               ),
             ),
           ],
@@ -111,11 +139,6 @@ class TurnBlock extends StatelessWidget {
   final PlayerMark mark;
   final ConnectionStatus status;
 
-  /// شوف [PlayerBoard.onAnswer].
-  final VoidCallback? onAnswer;
-  final bool showAnswer;
-  final bool answering;
-
   const TurnBlock({
     super.key,
     required this.state,
@@ -123,9 +146,6 @@ class TurnBlock extends StatelessWidget {
     required this.teamId,
     required this.mark,
     required this.status,
-    this.onAnswer,
-    this.showAnswer = false,
-    this.answering = false,
   });
 
   @override
@@ -170,22 +190,6 @@ class TurnBlock extends StatelessWidget {
                   style: FeudText.titleMedium(context).copyWith(color: ink),
                 ),
               ),
-            // زر الجواب جنب البلوك: بيوقف العدّاد حتى يسمعك المضيف ويحكم.
-            // مبيّن عند الكل — ومطفّي عند اللي مش دورهم.
-            if (showAnswer) ...[
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 122,
-                child: FlatButton(
-                  text: answering ? 'عم تجاوب' : 'بجاوب',
-                  color: answering ? FeudColors.gold : FeudColors.lime,
-                  textColor: FeudColors.ink,
-                  shadow: FeudColors.ink,
-                  enabled: !answering && onAnswer != null,
-                  onClick: onAnswer ?? () {},
-                ),
-              ),
-            ],
           ],
         ),
       ),

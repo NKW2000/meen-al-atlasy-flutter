@@ -327,8 +327,9 @@ void main() {
       }
     });
 
-    testWidgets('the answer button sits inside the turn block, beside the role, '
-        'and survives a long name on a narrow phone', (tester) async {
+    testWidgets('the answer button is the left half of the footer row, the role '
+        'block the right half — like the host board — and a long name on a '
+        'narrow phone does not break it', (tester) async {
       final longName = 'عبد الرحمن المحمد ا'; // ١٩ حرف — أطول اسم مسموح
       final playing = base.copyWith(
         players: [
@@ -351,20 +352,21 @@ void main() {
       // ما في overflow ولا استثناء بالتخطيط.
       expect(tester.takeException(), isNull);
 
-      // الزر جوّا بلوك الدور نفسه، مش بمكان تاني بالشاشة.
       final block = find.byType(TurnBlock);
       expect(block, findsOneWidget);
-      expect(
-        find.descendant(of: block, matching: find.text('بجاوب')),
-        findsOneWidget,
-      );
+      final button = find.byType(FlatButton);
+      expect(button, findsOneWidget);
 
-      // وبنفس السطر: مركزه العمودي نفس مركز نص الدور تقريباً.
-      final button = tester.getCenter(find.text('بجاوب'));
-      final role = tester.getCenter(find.text('دورك'));
-      expect((button.dy - role.dy).abs(), lessThan(12));
-      // وبالعربي (RTL) النص باليمين والزر بيجي بعده — يعني لشماله.
-      expect(button.dx, lessThan(role.dx));
+      // نفس السطر ونفس الارتفاع.
+      final buttonBox = tester.getRect(button);
+      final blockBox = tester.getRect(block);
+      expect((buttonBox.top - blockBox.top).abs(), lessThan(1));
+      expect((buttonBox.height - blockBox.height).abs(), lessThan(1));
+
+      // نصّ ونصّ: الزر عاليسار وبلوك الدور عاليمين، وعرضهم واحد.
+      expect(buttonBox.right, lessThanOrEqualTo(blockBox.left));
+      expect((buttonBox.width - blockBox.width).abs(), lessThan(2));
+      expect(buttonBox.width, greaterThan(blockBox.width * 0.9));
     });
 
     testWidgets('a disconnected player sees the connection label', (tester) async {
