@@ -689,8 +689,11 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
               ? ScoreboardScreen(state: state, onContinue: host.nextRound)
               : HostGameBoardScreen(
                   state: state,
-                  onCorrect: host.judgeCorrect,
-                  onWrong: host.judgeWrong,
+                  // منبعت رقم الدور اللي هالشاشة مبنية عليه — ضغطة متأخّرة
+                  // عن دورها بتنتجاهل بدل ما تنزل على اللاعب الجديد.
+                  onCorrect: (index) =>
+                      host.judgeCorrect(index, turn: state.answerTurn),
+                  onWrong: () => host.judgeWrong(turn: state.answerTurn),
                   onNextRound: host.nextRound,
                   onChangeQuestion: host.changeQuestion,
                 );

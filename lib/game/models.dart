@@ -460,6 +460,12 @@ class GameState {
   /// حتى ما ينحسب عليه خطأ لأن المضيف ما لحق يدوس.
   final bool clockPaused;
 
+  /// رقم دور الجواب الحالي — بيزيد كل مرة تنفتح نافذة جواب جديدة (دور
+  /// لاعب تاني، أو مرحلة جديدة). أزرار «صح/غلط» عند المضيف بتبعت معها
+  /// الرقم اللي كانت الشاشة عليه، والمحرك بيتجاهل حكم رقمه قديم — هيك
+  /// ضغطة متأخّرة (خلص الوقت بنفس اللحظة) ما تنزل على اللاعب الجديد.
+  final int answerTurn;
+
   /// الوقت الباقي لقرار «نلعب أو نمرّر».
   final int choiceSecondsLeft;
 
@@ -497,6 +503,7 @@ class GameState {
     this.answerLimitSeconds = defaultAnswerSeconds,
     this.choiceLimitSeconds = choiceSeconds,
     this.answerSecondsLeft = 0,
+    this.answerTurn = 0,
     this.clockPaused = false,
     this.choiceSecondsLeft = 0,
     this.matchStarted = false,
@@ -650,6 +657,7 @@ class GameState {
     int? answerLimitSeconds,
     int? choiceLimitSeconds,
     int? answerSecondsLeft,
+    int? answerTurn,
     bool? clockPaused,
     int? choiceSecondsLeft,
     bool? matchStarted,
@@ -699,6 +707,7 @@ class GameState {
         answerLimitSeconds: answerLimitSeconds ?? this.answerLimitSeconds,
         choiceLimitSeconds: choiceLimitSeconds ?? this.choiceLimitSeconds,
         answerSecondsLeft: answerSecondsLeft ?? this.answerSecondsLeft,
+        answerTurn: answerTurn ?? this.answerTurn,
         clockPaused: clockPaused ?? this.clockPaused,
         choiceSecondsLeft: choiceSecondsLeft ?? this.choiceSecondsLeft,
         matchStarted: matchStarted ?? this.matchStarted,
@@ -738,6 +747,7 @@ class GameState {
         'answerLimitSeconds': answerLimitSeconds,
         'choiceLimitSeconds': choiceLimitSeconds,
         'answerSecondsLeft': answerSecondsLeft,
+        'answerTurn': answerTurn,
         'clockPaused': clockPaused,
         'choiceSecondsLeft': choiceSecondsLeft,
         'matchStarted': matchStarted,
@@ -798,6 +808,7 @@ class GameState {
             json['answerLimitSeconds'] as int? ?? defaultAnswerSeconds,
         choiceLimitSeconds: json['choiceLimitSeconds'] as int? ?? choiceSeconds,
         answerSecondsLeft: json['answerSecondsLeft'] as int? ?? 0,
+        answerTurn: json['answerTurn'] as int? ?? 0,
         clockPaused: json['clockPaused'] as bool? ?? false,
         choiceSecondsLeft: json['choiceSecondsLeft'] as int? ?? 0,
         matchStarted: json['matchStarted'] as bool? ?? false,
@@ -836,6 +847,7 @@ class GameState {
         other.answerLimitSeconds == answerLimitSeconds &&
         other.choiceLimitSeconds == choiceLimitSeconds &&
         other.answerSecondsLeft == answerSecondsLeft &&
+        other.answerTurn == answerTurn &&
         other.clockPaused == clockPaused &&
         other.choiceSecondsLeft == choiceSecondsLeft &&
         other.matchStarted == matchStarted &&
@@ -872,6 +884,7 @@ class GameState {
         answerLimitSeconds,
         choiceLimitSeconds,
         answerSecondsLeft,
+        answerTurn,
         clockPaused,
         choiceSecondsLeft,
         matchStarted,

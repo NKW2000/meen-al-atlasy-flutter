@@ -213,10 +213,13 @@ class HostController extends ChangeNotifier {
     _applyAndBroadcast(ReplaceQuestion(question));
   }
 
-  void judgeCorrect(int answerIndex) =>
-      _applyAndBroadcast(JudgeCorrect(answerIndex));
+  /// [turn] هو [GameState.answerTurn] اللي كانت شاشة المضيف مبنية عليه.
+  /// إذا الدور تغيّر بهالأثناء (خلص وقت اللاعب لحاله بنفس اللحظة) المحرك
+  /// بيتجاهل الحكم بدل ما ينزل على اللاعب الجديد.
+  void judgeCorrect(int answerIndex, {int? turn}) =>
+      _applyAndBroadcast(JudgeCorrect(answerIndex, turn: turn));
 
-  void judgeWrong() => _applyAndBroadcast(const JudgeWrong());
+  void judgeWrong({int? turn}) => _applyAndBroadcast(JudgeWrong(turn: turn));
 
   void nextRound() => _applyAndBroadcast(const NextRound());
 

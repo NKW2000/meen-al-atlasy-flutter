@@ -17,15 +17,23 @@ import '../host/host_board_screen.dart';
 import '../responsive.dart';
 import '../theme.dart';
 
-/// بمراحل اللعب ما في كبسة (طلب المستخدم): اللاعب بيحكي جوابه والمضيف
-/// بيحكم، والعدّاد بيمشي وما بيوقف — إذا ما لحق يجاوب بينحسب عليه غلط.
-/// الزر الكبير بالمواجهة (سباق الضغط) بيضل بشاشته.
+/// بمراحل اللعب في زر «بجاوب» جنب بلوك الدور (طلب المستخدم): اللاعب
+/// اللي عليه الدور بيدوسه فيوقف العدّاد، بيحكي جوابه بصوته، والمضيف بيحكم
+/// صح أو غلط. بدونه كان العدّاد بيكمّل وهو عم يحكي وبينحسب عليه غلط.
+/// الزر الكبير بالمواجهة (سباق الضغط) بيضل بشاشته لحاله.
 class PlayerBoard extends StatelessWidget {
   final GameState? state;
   final String? playerId;
   final TeamId? teamId;
   final PlayerMark mark;
   final ConnectionStatus status;
+
+  /// «بجاوب» — بيطلع بس لما يكون الدور على صاحب الجهاز. `null` يعني ما
+  /// في زر (دور حدا تاني، أو مرحلة ما فيها جواب).
+  final VoidCallback? onAnswer;
+
+  /// دوس الزر أصلاً والعدّاد واقف — الزر بيصير «عم تجاوب» ومطفّي.
+  final bool answering;
 
   const PlayerBoard({
     super.key,
@@ -34,6 +42,8 @@ class PlayerBoard extends StatelessWidget {
     required this.teamId,
     required this.mark,
     required this.status,
+    this.onAnswer,
+    this.answering = false,
   });
 
   @override
@@ -74,6 +84,8 @@ class PlayerBoard extends StatelessWidget {
                   teamId: teamId,
                   mark: mark,
                   status: status,
+                  onAnswer: onAnswer,
+                  answering: answering,
                 ),
               ),
             ),
@@ -92,6 +104,10 @@ class TurnBlock extends StatelessWidget {
   final PlayerMark mark;
   final ConnectionStatus status;
 
+  /// شوف [PlayerBoard.onAnswer].
+  final VoidCallback? onAnswer;
+  final bool answering;
+
   const TurnBlock({
     super.key,
     required this.state,
@@ -99,6 +115,8 @@ class TurnBlock extends StatelessWidget {
     required this.teamId,
     required this.mark,
     required this.status,
+    this.onAnswer,
+    this.answering = false,
   });
 
   @override
@@ -135,6 +153,21 @@ class TurnBlock extends StatelessWidget {
                   style: FeudText.titleMedium(context).copyWith(color: ink),
                 ),
               ),
+              // زر الجواب جنب البلوك: بيوقف العدّاد حتى يسمعك المضيف ويحكم.
+              if (onAnswer != null || answering) ...[
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 122,
+                  child: FlatButton(
+                    text: answering ? 'عم تجاوب' : 'بجاوب',
+                    color: answering ? FeudColors.gold : FeudColors.lime,
+                    textColor: FeudColors.ink,
+                    shadow: FeudColors.ink,
+                    enabled: !answering && onAnswer != null,
+                    onClick: onAnswer ?? () {},
+                  ),
+                ),
+              ],
             ] else
               Expanded(
                 child: Text(

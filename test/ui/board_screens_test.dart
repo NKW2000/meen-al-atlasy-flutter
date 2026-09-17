@@ -206,6 +206,146 @@ void main() {
       expect(find.text('المواجهة — أول ضغطة بتجاوب'), findsOneWidget);
     });
 
+    testWidgets('the player whose turn it is gets an answer button that stops '
+        'the clock', (tester) async {
+      var buzzes = 0;
+      final playing = base.copyWith(
+        phase: RoundPhase.play,
+        controllingTeam: TeamId.team1,
+        turnPlayerId: 'a1',
+        answerSecondsLeft: 10,
+      );
+
+      await _pump(
+        tester,
+        PlayerScreen(
+          state: playing,
+          playerId: 'a1',
+          teamId: TeamId.team1,
+          mark: playing.markFor('a1'),
+          status: ConnectionStatus.connected,
+          onBuzz: () => buzzes++,
+        ),
+        portrait: true,
+      );
+
+      expect(find.text('بجاوب'), findsOneWidget);
+      await tester.tap(find.text('بجاوب'));
+      expect(buzzes, 1);
+    });
+
+    testWidgets('the answer button belongs to the player on turn, nobody else',
+        (tester) async {
+      final playing = base.copyWith(
+        phase: RoundPhase.play,
+        controllingTeam: TeamId.team1,
+        turnPlayerId: 'a1',
+        answerSecondsLeft: 10,
+      );
+
+      // زميله بنفس الفريق ما بيشوف الزر.
+      await _pump(tester, screen(playing, playerId: 'a2'), portrait: true);
+      expect(find.text('بجاوب'), findsNothing);
+
+      // ولا الخصم.
+      await _pump(tester, screen(playing, playerId: 'b1'), portrait: true);
+      expect(find.text('بجاوب'), findsNothing);
+    });
+
+    testWidgets('once pressed it reads "answering" and cannot be pressed again',
+        (tester) async {
+      var buzzes = 0;
+      // نفس الحالة بعد ما وصل الضغط للمضيف: العدّاد واقف واللاعب مسجّل ضاغط.
+      final answering = base.copyWith(
+        phase: RoundPhase.play,
+        controllingTeam: TeamId.team1,
+        turnPlayerId: 'a1',
+        buzzedPlayerId: 'a1',
+        clockPaused: true,
+        answerSecondsLeft: 7,
+      );
+
+      await _pump(
+        tester,
+        PlayerScreen(
+          state: answering,
+          playerId: 'a1',
+          teamId: TeamId.team1,
+          mark: answering.markFor('a1'),
+          status: ConnectionStatus.connected,
+          onBuzz: () => buzzes++,
+        ),
+        portrait: true,
+      );
+
+      expect(find.text('عم تجاوب'), findsOneWidget);
+      expect(find.text('بجاوب'), findsNothing);
+      await tester.tap(find.text('عم تجاوب'));
+      expect(buzzes, 0, reason: 'مطفّي — الضغطة وصلت أصلاً');
+    });
+
+    testWidgets('the steal and the second face-off get the button too',
+        (tester) async {
+      for (final phase in [RoundPhase.steal, RoundPhase.faceOffSecond]) {
+        final state = phase == RoundPhase.steal
+            ? base.copyWith(
+                phase: phase,
+                controllingTeam: TeamId.team2,
+                turnPlayerId: 'a1',
+                answerSecondsLeft: 10,
+              )
+            : base.copyWith(
+                phase: phase,
+                faceOffTeam: TeamId.team1,
+                answerSecondsLeft: 10,
+              );
+        expect(state.armedPlayerIds(), contains('a1'));
+
+        await _pump(tester, screen(state, playerId: 'a1'), portrait: true);
+        expect(find.text('بجاوب'), findsOneWidget, reason: '$phase');
+      }
+    });
+
+    testWidgets('the answer button sits inside the turn block, beside the role, '
+        'and survives a long name on a narrow phone', (tester) async {
+      final longName = 'عبد الرحمن المحمد ا'; // ١٩ حرف — أطول اسم مسموح
+      final playing = base.copyWith(
+        players: [
+          Player(id: 'a1', name: longName, teamId: TeamId.team1, seat: 1),
+          const Player(id: 'b1', name: 'ب١', teamId: TeamId.team2, seat: 1),
+        ],
+        phase: RoundPhase.play,
+        controllingTeam: TeamId.team1,
+        turnPlayerId: 'a1',
+        answerSecondsLeft: 10,
+      );
+
+      // موبايل ضيّق.
+      tester.view.physicalSize = const Size(720, 1400);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(feudApp(screen(playing, playerId: 'a1')));
+      await tester.pump();
+
+      // ما في overflow ولا استثناء بالتخطيط.
+      expect(tester.takeException(), isNull);
+
+      // الزر جوّا بلوك الدور نفسه، مش بمكان تاني بالشاشة.
+      final block = find.byType(TurnBlock);
+      expect(block, findsOneWidget);
+      expect(
+        find.descendant(of: block, matching: find.text('بجاوب')),
+        findsOneWidget,
+      );
+
+      // وبنفس السطر: مركزه العمودي نفس مركز نص الدور تقريباً.
+      final button = tester.getCenter(find.text('بجاوب'));
+      final role = tester.getCenter(find.text('دورك'));
+      expect((button.dy - role.dy).abs(), lessThan(12));
+      // وبالعربي (RTL) النص باليمين والزر بيجي بعده — يعني لشماله.
+      expect(button.dx, lessThan(role.dx));
+    });
+
     testWidgets('a disconnected player sees the connection label', (tester) async {
       await _pump(
         tester,
@@ -308,6 +448,25 @@ void hostTurnChipTests() {
 
     await _pump(tester, board(base.copyWith(phase: RoundPhase.play, controllingTeam: TeamId.team1,
         turnPlayerId: 'a2', buzzState: BuzzState.closed)));
+    expect(find.text(base.player('a2')!.name), findsOneWidget);
+  });
+
+  testWidgets('when a player presses "I will answer" the host sees why the clock stopped',
+      (tester) async {
+    final playing = base.copyWith(
+      phase: RoundPhase.play,
+      controllingTeam: TeamId.team1,
+      turnPlayerId: 'a2',
+      buzzState: BuzzState.closed,
+      answerSecondsLeft: 6,
+    );
+
+    await _pump(tester, board(playing));
+    expect(find.text('عم يجاوب'), findsNothing);
+
+    // اللاعب دوس «بجاوب» — وصل للمضيف ووقف العدّاد.
+    await _pump(tester, board(playing.copyWith(buzzedPlayerId: 'a2', clockPaused: true)));
+    expect(find.text('عم يجاوب'), findsOneWidget);
     expect(find.text(base.player('a2')!.name), findsOneWidget);
   });
 }

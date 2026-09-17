@@ -32,10 +32,13 @@ class GameEngine {
   }
 
   GameState apply(GameEvent event) {
+    final before = _state;
     _state = switch (event) {
       Buzz() => _handleBuzz(event),
-      JudgeCorrect() => _handleCorrect(event.answerIndex),
-      JudgeWrong() => _handleWrong(),
+      JudgeCorrect() => _isStaleJudgement(event.turn)
+          ? _state
+          : _handleCorrect(event.answerIndex),
+      JudgeWrong() => _isStaleJudgement(event.turn) ? _state : _handleWrong(),
       ChooseControl() => _handleChoice(event.play),
       NextRound() => _handleNextRound(),
       PlayerJoined() => _handlePlayerJoined(event),
@@ -56,8 +59,21 @@ class GameEngine {
     if (event is! Buzz && event is! Tick) {
       _state = _state.copyWith(clockPaused: false);
     }
+    // انفتحت نافذة جواب جديدة؟ يعني الدور صار لحدا تاني (أو لنفس الشخص
+    // من جديد) — منزيد الرقم حتى أي حكم متأخّر عن الدور القديم ينتجاهل.
+    final freshWindow = _state.answerSecondsLeft == _state.answerLimitSeconds &&
+        before.answerSecondsLeft != _state.answerSecondsLeft;
+    if (_state.phase != before.phase || freshWindow) {
+      _state = _state.copyWith(answerTurn: before.answerTurn + 1);
+    }
     return _state;
   }
+
+  /// حكم وصل متأخّر عن دوره. بيصير باللعب الحقيقي: خلص وقت اللاعب
+  /// فالمحرك حسبها غلط لحاله ونقل الدور للخصم، وبعدها بجزء من ثانية
+  /// المضيف دوس «غلط» (لأنه شاف اللاعب فشل) — وبدون هالحارس هالضغطة
+  /// كانت تنزل على الخصم اللي لسا ما جاوب وتحرقلّه دورو.
+  bool _isStaleJudgement(int? turn) => turn != null && turn != _state.answerTurn;
 
   // ------------------------------------------------------------------ الضغط
 

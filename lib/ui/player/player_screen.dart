@@ -74,6 +74,21 @@ class PlayerScreen extends StatelessWidget {
 
     if (faceOffBuzzer) return FullScreenBuzzer(onBuzz: onBuzz);
 
+    // زر «بجاوب»: بس لصاحب الدور، وبس بمرحلة فيها جواب (اللعب، السرقة،
+    // والمواجهة التانية). بيوقف العدّاد لحد ما يحكم المضيف.
+    final canAnswer = connected &&
+        playerId != null &&
+        state != null &&
+        !state.gameOver &&
+        const {
+          RoundPhase.play,
+          RoundPhase.steal,
+          RoundPhase.faceOffSecond,
+        }.contains(state.phase) &&
+        state.armedPlayerIds().contains(playerId);
+    // ضغط أصلاً (أو المضيف واقف العدّاد) — الزر بيصير «عم تجاوب».
+    final answering = canAnswer && (mark == PlayerMark.buzzed || state.clockPaused);
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -83,6 +98,8 @@ class PlayerScreen extends StatelessWidget {
           teamId: teamId,
           mark: mark,
           status: status,
+          onAnswer: canAnswer && !answering ? onBuzz : null,
+          answering: answering,
         ),
         // نفس حركة الخطأ اللي بتطلع عند المضيف — بتطلع عند الكل،
         // وكمان لما يخلص الوقت بدون جواب.

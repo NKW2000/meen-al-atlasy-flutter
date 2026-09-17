@@ -645,6 +645,33 @@ void main() {
     );
   });
 
+  test('a judgement that belongs to an older answer turn is ignored', () async {
+    final vm = controller(tick: const Duration(milliseconds: 10));
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+    buzz(transport, 'ep-a');
+    await pump();
+
+    // الرقم اللي شاشة المضيف مبنية عليه وهو عم يستنى جواب اللاعب الأول.
+    final turnOnScreen = vm.state.answerTurn;
+
+    // خلص وقت اللاعب لحاله — المحرك حسبها غلط ونقل الدور للخصم.
+    await Future.delayed(const Duration(milliseconds: 150));
+    expect(vm.state.phase, RoundPhase.faceOffSecond);
+    final opponentTurn = vm.state.answerTurn;
+
+    // المضيف دوس «غلط» متأخّر — بترجع بلا مفعول.
+    vm.judgeWrong(turn: turnOnScreen);
+
+    expect(vm.state.phase, RoundPhase.faceOffSecond);
+    expect(vm.state.answerTurn, opponentTurn);
+
+    // وبرقم الدور الحالي بتزبط عادي.
+    vm.judgeWrong(turn: vm.state.answerTurn);
+    expect(vm.state.phase, isNot(RoundPhase.faceOffSecond));
+  });
+
   test('endGame stops the clock', () async {
     final vm = controller(tick: const Duration(milliseconds: 10));
     join(transport, ['ep-a', 'ep-b']);

@@ -20,12 +20,20 @@ class Buzz extends GameEvent {
 class JudgeCorrect extends GameEvent {
   final int answerIndex;
 
-  const JudgeCorrect(this.answerIndex);
+  /// دور الجواب اللي انبنى عليه الحكم ([GameState.answerTurn]).
+  /// إذا الدور تغيّر قبل ما يوصل الحكم (مثلاً خلص الوقت لحاله بنفس
+  /// اللحظة) منتجاهل الحكم بدل ما ينزل على لاعب تاني لسا ما جاوب.
+  final int? turn;
+
+  const JudgeCorrect(this.answerIndex, {this.turn});
 }
 
 /// جواب غلط — بالمواجهة بينقل الدور، وباللعب بيزيد خطأ (X).
 class JudgeWrong extends GameEvent {
-  const JudgeWrong();
+  /// شوف [JudgeCorrect.turn].
+  final int? turn;
+
+  const JudgeWrong({this.turn});
 }
 
 /// قرار الفريق اللي كسب المواجهة: يلعب اللوح ([play] = true) أو
