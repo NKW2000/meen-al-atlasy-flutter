@@ -12,6 +12,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:path_provider/path_provider.dart';
@@ -104,6 +105,17 @@ Future<void> main() async {
       await FlutterDisplayMode.setHighRefreshRate();
     } catch (_) {}
   }
+
+  // رخصة الخطوط: OFL 1.1 بتشترط إنه نص الرخصة يوزّع مع الخط — منسجّله
+  // هون فبيبيّن بصفحة «رخص المكتبات المفتوحة» جنب باقي الرخص.
+  LicenseRegistry.addLicense(() async* {
+    for (final (name, file) in const [
+      ('Baloo Bhaijaan 2', 'assets/fonts/OFL_BalooBhaijaan2.txt'),
+      ('Tajawal', 'assets/fonts/OFL_Tajawal.txt'),
+    ]) {
+      yield LicenseEntryWithLineBreaks([name], await rootBundle.loadString(file));
+    }
+  });
 
   runApp(await bootstrap());
 }

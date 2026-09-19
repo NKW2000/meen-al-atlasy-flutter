@@ -1,7 +1,7 @@
 name: meen_al_atlasy
 description: "مين الأطليسي — لعبة سهرات عربية: سؤال وأجوبته مرتّبة حسب شيوعها، فريقين وجهاز لكل لاعب."
 publish_to: 'none'
-version: 0.13.1+54
+version: 0.13.2+55
 
 environment:
   sdk: ^3.13.3
@@ -27,6 +27,10 @@ flutter:
   assets:
     - assets/questions/
     - assets/sounds/
+    # نصوص رخصة الخطوط (OFL 1.1) — الرخصة بتشترط توزيعها مع الخط، وبتبيّن
+    # بصفحة «رخص المكتبات المفتوحة».
+    - assets/fonts/OFL_BalooBhaijaan2.txt
+    - assets/fonts/OFL_Tajawal.txt
   fonts:
     - family: BalooBhaijaan2
       fonts:
