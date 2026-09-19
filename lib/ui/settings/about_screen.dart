@@ -207,7 +207,7 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '• الأصوات: من ملفات التطبيق الأصلي.',
+                          '• الأصوات: مركّبة خصيصاً لهاللعبة، مع عيّنات CC0 من Kenney (kenney.nl).',
                           style: body,
                         ),
                         const SizedBox(height: 6),

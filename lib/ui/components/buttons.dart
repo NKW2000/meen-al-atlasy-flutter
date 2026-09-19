@@ -5,6 +5,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../feedback/game_feedback.dart';
 import '../theme.dart';
 import 'stage.dart';
 
@@ -29,7 +30,11 @@ class PrimaryButton extends StatelessWidget {
       color: enabled ? color : FeudColors.panelDark,
       corner: 18,
       shadow: 6,
-      onClick: onClick,
+      // نقرة مع كل ضغطة زر — أزرار الحكم واللوح إلها أصواتها لحالها.
+      onClick: () {
+        GameFeedbackScope.maybeOf(context)?.play(Cue.tap);
+        onClick();
+      },
       enabled: enabled,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),

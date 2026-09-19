@@ -462,6 +462,7 @@ class _PlayerRoomsRouteState extends State<_PlayerRoomsRoute> {
   void _onPlayerChanged() {
     if (_navigated || _player!.status != ConnectionStatus.connected) return;
     _navigated = true;
+    GameFeedbackScope.maybeOf(context)?.play(Cue.connected);
     // بعد الإطار الحالي — `notifyListeners` ممكن يجي من جوّا build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.of(context).pushReplacementNamed('playerBuzzer');
@@ -552,6 +553,7 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
     // حوار «انقطعت عن اللعبة» عن لعبة ما كنا جوّاها.
     if (player.rejected && !_navigated) {
       _navigated = true;
+      GameFeedbackScope.maybeOf(context)?.play(Cue.kicked);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).pushReplacementNamed('playerRooms');
       });

@@ -6,6 +6,7 @@
 library;
 
 import 'package:flutter/widgets.dart';
+import 'dart:async';
 
 import '../game/models.dart';
 import 'game_feedback.dart';
@@ -29,17 +30,42 @@ List<Cue> cuesFor(GameState? previous, GameState next, {bool forHost = false}) {
     return const [Cue.buzz];
   }
   final award = next.lastAward;
-  // السرقة (طلب المستخدم): غلط الفريق التاني بيسمع صوت الغلط تبع المواجهة،
-  // وصحّه صوت كشف الجواب — مش صوت الفوز.
+  // السرقة: نجحت = صوت سرقة خاص، فشلت = غلط.
   if (previous.phase == RoundPhase.steal && award != null && award != previous.lastAward) {
-    return award.stolen ? const [Cue.reveal] : const [Cue.wrong];
+    return award.stolen ? const [Cue.stealWin] : const [Cue.wrong];
   }
   // نهاية الجولة بتكشف اللوح كله، فبنعلن الفوز مش كل خانة.
   if (award != null && award != previous.lastAward) return const [Cue.win];
+  // خلص الوقت لحاله (كان باقي ثانية والساعة ماشية) — صوت انتهاء الوقت
+  // بدل صوت الخطأ العادي.
+  final penalised = next.strikes > previous.strikes || next.wrongTicks > previous.wrongTicks;
+  if (penalised && previous.answerSecondsLeft == 1 && !previous.clockPaused) {
+    return const [Cue.timeUp];
+  }
   if (next.strikes > previous.strikes) return [strikeCue(next.strikes)];
   // غلط بالمواجهة ما بياخد X، بس لازم ينسمع.
   if (next.wrongTicks > previous.wrongTicks) return const [Cue.wrong];
   if (_revealedCount(next) > _revealedCount(previous)) return const [Cue.reveal];
+  // انتقالات المراحل.
+  if (next.phase != previous.phase) {
+    switch (next.phase) {
+      case RoundPhase.steal:
+        return const [Cue.stealOpen];
+      case RoundPhase.playOrPass:
+        return const [Cue.choicePrompt];
+      case RoundPhase.play:
+        return previous.phase == RoundPhase.playOrPass ? const [Cue.choiceMade] : const [];
+      case RoundPhase.gameOver:
+        return const [Cue.gameOver];
+      default:
+        break;
+    }
+  }
+  // اللوبي: حدا انضم أو راح.
+  if (!next.matchStarted) {
+    if (next.players.length > previous.players.length) return const [Cue.join];
+    if (next.players.length < previous.players.length) return const [Cue.leave];
+  }
   return const [];
 }
 
@@ -78,6 +104,72 @@ class _GameCuesState extends State<GameCues> {
       }
     }
     _last = next;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// تنبيهات على مواقيت مشهد متحرّك: [cues] بتربط ثانية من بداية المشهد
+/// بتنبيه، وكل واحد بيتشغّل مرة وحدة أول ما يمرق وقته. [sceneKey] جديد =
+/// مشهد جديد (بتعاد الحسبة). [t] هو وقت المشهد من `ShowScene`.
+class TimedCues extends StatefulWidget {
+  final double t;
+  final Object? sceneKey;
+  final Map<double, Cue> cues;
+  final Widget child;
+
+  const TimedCues({
+    super.key,
+    required this.t,
+    required this.cues,
+    this.sceneKey,
+    required this.child,
+  });
+
+  @override
+  State<TimedCues> createState() => _TimedCuesState();
+}
+
+class _TimedCuesState extends State<TimedCues> {
+  final Set<double> _fired = {};
+
+  @override
+  void didUpdateWidget(TimedCues oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sceneKey != widget.sceneKey || widget.t < oldWidget.t) _fired.clear();
+    final feedback = GameFeedbackScope.maybeOf(context);
+    if (feedback == null) return;
+    for (final entry in widget.cues.entries) {
+      if (widget.t >= entry.key && !_fired.contains(entry.key)) {
+        _fired.add(entry.key);
+        feedback.play(entry.value);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// تنبيه واحد أول ما يتركّب الويدجت — لافتتاحية أو شاشة بتبلّش بصوت.
+class CueOnMount extends StatefulWidget {
+  final Cue cue;
+  final Widget child;
+
+  const CueOnMount({super.key, required this.cue, required this.child});
+
+  @override
+  State<CueOnMount> createState() => _CueOnMountState();
+}
+
+class _CueOnMountState extends State<CueOnMount> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) GameFeedbackScope.maybeOf(context)?.play(widget.cue);
+    });
   }
 
   @override
@@ -190,6 +282,51 @@ class _PlayerMarkCuesState extends State<PlayerMarkCues> {
       }
       _last = widget.mark;
     }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// فرقعات الألعاب النارية: بتتكرّر مع كل دورة (٢٫٦ ث) طول ما الشاشة
+/// مفتوحة، بحدّ أقصى [cycles] مرات حتى ما تصير ضجيج.
+class FireworksCues extends StatefulWidget {
+  final Widget child;
+  final Duration cycle;
+  final int cycles;
+
+  const FireworksCues({
+    super.key,
+    required this.child,
+    this.cycle = const Duration(milliseconds: 2600),
+    this.cycles = 4,
+  });
+
+  @override
+  State<FireworksCues> createState() => _FireworksCuesState();
+}
+
+class _FireworksCuesState extends State<FireworksCues> {
+  Timer? _timer;
+  int _played = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fire());
+  }
+
+  void _fire() {
+    if (!mounted || _played >= widget.cycles) return;
+    _played++;
+    GameFeedbackScope.maybeOf(context)?.play(Cue.fireworks);
+    _timer = Timer(widget.cycle, _fire);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override

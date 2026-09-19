@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../feedback/game_feedback.dart';
 import '../../game/models.dart';
 import '../arabic_numerals.dart';
 import '../components/buttons.dart';
@@ -122,7 +123,9 @@ class PlayerLobbyScreen extends StatelessWidget {
                                 teamId: id,
                                 mine: id == teamId,
                                 onClick: () {
-                                  if (id != teamId) onChangeTeam(id);
+                                  if (id == teamId) return;
+                                  GameFeedbackScope.maybeOf(context)?.play(Cue.teamSwitch);
+                                  onChangeTeam(id);
                                 },
                                 twoColumns: true,
                               ),
@@ -141,7 +144,9 @@ class PlayerLobbyScreen extends StatelessWidget {
                                 teamId: id,
                                 mine: id == teamId,
                                 onClick: () {
-                                  if (id != teamId) onChangeTeam(id);
+                                  if (id == teamId) return;
+                                  GameFeedbackScope.maybeOf(context)?.play(Cue.teamSwitch);
+                                  onChangeTeam(id);
                                 },
                               ),
                             ),

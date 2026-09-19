@@ -14,8 +14,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 /// نوع التنبيه — كل واحد له صوت ونمط اهتزاز.
-/// الستريكات تلاتة، وكل وحدة إلها صوتها زي البرنامج.
-enum Cue { reveal, strike1, strike2, strike3, wrong, win, buzz, clock }
+///
+/// الأصوات كلها أصلية أو CC0 (شوف `tools/sfx/`): أحداث اللعبة، وكل حركة
+/// بالشاشات (بداية الجولة، «استعدوا»، عدّ النقاط، التاج، الألعاب النارية…).
+enum Cue {
+  // أحداث اللعبة
+  reveal, strike1, strike2, strike3, wrong, win, buzz, clock,
+  timeUp, stealOpen, stealWin, choicePrompt, choiceMade, faceOffOpen,
+  // الحركات والشاشات
+  intro, roundStart, versus, scoreCount, crown, banner, gameOver, fireworks,
+  // اللوبي والواجهة
+  tap, join, leave, connected, kicked, teamSwitch, error,
+}
 
 /// صوت الخطأ حسب رقمه: الأول، التاني، التالت.
 Cue strikeCue(int number) => switch (number) {
@@ -24,15 +34,9 @@ Cue strikeCue(int number) => switch (number) {
       _ => Cue.strike3,
     };
 
-const Map<Cue, String> _files = {
-  Cue.reveal: 'sounds/sfx_reveal.mp3',
-  Cue.strike1: 'sounds/sfx_strike1.mp3',
-  Cue.strike2: 'sounds/sfx_strike2.mp3',
-  Cue.strike3: 'sounds/sfx_strike3.mp3',
-  Cue.wrong: 'sounds/sfx_wrong.mp3',
-  Cue.win: 'sounds/sfx_reveal.mp3', // نفس صوت الكشف (بطلب المستخدم)
-  Cue.buzz: 'sounds/sfx_press.mp3',
-  Cue.clock: 'sounds/sfx_clock.mp3',
+/// ملف كل تنبيه — `sfx_<اسم التنبيه>.mp3` من `tools/sfx/build.js`.
+final Map<Cue, String> _files = {
+  for (final cue in Cue.values) cue: 'sounds/sfx_${cue.name}.mp3',
 };
 
 /// نمط مميّز لكل حدث — الغلط ضربتين، الفوز ثلاث نبضات. نفس
@@ -40,12 +44,18 @@ const Map<Cue, String> _files = {
 const Map<Cue, List<int>> _patterns = {
   Cue.reveal: [0, 28],
   Cue.buzz: [0, 18],
-  Cue.clock: [0, 0],
   Cue.strike1: [0, 60],
   Cue.strike2: [0, 60, 70, 60],
   Cue.strike3: [0, 70, 70, 70, 70, 140],
   Cue.wrong: [0, 130],
   Cue.win: [0, 45, 60, 45, 60, 110],
+  Cue.timeUp: [0, 120],
+  Cue.stealOpen: [0, 40, 60, 40],
+  Cue.stealWin: [0, 45, 60, 45, 60, 110],
+  Cue.versus: [0, 90],
+  Cue.crown: [0, 40],
+  Cue.gameOver: [0, 60, 60, 60, 60, 140],
+  Cue.kicked: [0, 100],
 };
 
 /// مشغّل صوت واحد. مجرّد عن `audioplayers` لسبب واحد: ترتيب
@@ -200,7 +210,8 @@ class GameFeedback {
   }
 
   Future<void> _vibrate(Cue cue) async {
-    final timings = _patterns[cue]!;
+    final timings = _patterns[cue];
+    if (timings == null) return; // صوت بس — بدون اهتزاز.
     // كل زوج (سكوت، نبضة): منستنى السكوت ومنضرب نبضة بقوّة تناسب طولها.
     for (var i = 0; i + 1 < timings.length; i += 2) {
       if (timings[i] > 0) await Future.delayed(Duration(milliseconds: timings[i]));

@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../feedback/game_feedback.dart';
 import '../theme.dart';
 import 'stage.dart';
 
@@ -56,6 +57,7 @@ class _ErrorSnackbarState extends State<ErrorSnackbar> {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.maybeOf(context);
       if (messenger == null) return;
+      GameFeedbackScope.maybeOf(context)?.play(Cue.error);
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(

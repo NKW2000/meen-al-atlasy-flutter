@@ -27,6 +27,8 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../feedback/game_cues.dart';
+import '../../feedback/game_feedback.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../components/brand_logo.dart';
@@ -308,8 +310,10 @@ class IntroScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isPortrait(context)) return _IntroPortrait(onDone: onDone);
-    return _IntroLandscape(onDone: onDone);
+    return CueOnMount(
+      cue: Cue.intro,
+      child: isPortrait(context) ? _IntroPortrait(onDone: onDone) : _IntroLandscape(onDone: onDone),
+    );
   }
 }
 

@@ -139,7 +139,7 @@ void main() {
     expect(made, hasLength(Cue.values.length));
     expect(
       calls.where((c) => c.startsWith('load')).toSet(),
-      hasLength(Cue.values.length - 1), // الفوز والكشف نفس الملف
+      hasLength(Cue.values.length), // ملف لكل تنبيه
     );
     expect(feedback, isNotNull);
   });

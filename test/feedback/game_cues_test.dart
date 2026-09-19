@@ -120,11 +120,43 @@ void stealCueTests() {
     expect(cuesFor(base, next), [Cue.wrong]);
   });
 
-  test('a successful steal plays the reveal sound', () {
+  test('a successful steal plays its own sting', () {
     final next = _reveal(base, 1).copyWith(
       phase: RoundPhase.roundEnd,
       lastAward: const Award(teamId: TeamId.team2, points: 100, stolen: true),
     );
-    expect(cuesFor(base, next), [Cue.reveal]);
+    expect(cuesFor(base, next), [Cue.stealWin]);
+  });
+
+  group('new moments', () {
+    // حالة نظيفة — base هون تبع السرقة (strikes: 3).
+    final base = freshState();
+    test('time running out is its own sound, not a plain strike', () {
+      // كان باقي ثانية والساعة ماشية → صار X: خلص الوقت.
+      final before = base.copyWith(phase: RoundPhase.play, answerSecondsLeft: 1);
+      final after = before.copyWith(strikes: 1, answerSecondsLeft: 10);
+      expect(cuesFor(before, after), [Cue.timeUp]);
+      // نفس الشي بس الساعة كانت واقفة (اللاعب ضاغط) → حكم عادي.
+      expect(cuesFor(before.copyWith(clockPaused: true), after), [Cue.strike1]);
+    });
+
+    test('entering the steal, the choice, and the end each announce themselves', () {
+      final play = base.copyWith(phase: RoundPhase.play, matchStarted: true);
+      expect(cuesFor(play, play.copyWith(phase: RoundPhase.steal)), [Cue.stealOpen]);
+      final faceOff = base.copyWith(phase: RoundPhase.faceOff, matchStarted: true);
+      expect(cuesFor(faceOff, faceOff.copyWith(phase: RoundPhase.playOrPass)), [Cue.choicePrompt]);
+      final choice = base.copyWith(phase: RoundPhase.playOrPass, matchStarted: true);
+      expect(cuesFor(choice, choice.copyWith(phase: RoundPhase.play)), [Cue.choiceMade]);
+      expect(cuesFor(play, play.copyWith(phase: RoundPhase.gameOver, gameOver: true)), [Cue.gameOver]);
+    });
+
+    test('joining and leaving the lobby are audible, but not mid-game', () {
+      final lobby = base.copyWith(matchStarted: false);
+      final more = lobby.copyWith(players: [...lobby.players, const Player(id: 'z', name: 'ز', teamId: TeamId.team1, seat: 4)]);
+      expect(cuesFor(lobby, more), [Cue.join]);
+      expect(cuesFor(more, lobby), [Cue.leave]);
+      final game = base.copyWith(matchStarted: true);
+      expect(cuesFor(game, game.copyWith(players: game.players.sublist(1))), isEmpty);
+    });
   });
 }

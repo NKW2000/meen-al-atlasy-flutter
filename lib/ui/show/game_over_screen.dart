@@ -8,6 +8,7 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../feedback/game_cues.dart';
 
 import '../../game/models.dart';
 import '../components/buttons.dart';
@@ -108,7 +109,9 @@ class GameOverScreen extends StatelessWidget {
         ),
         const IgnorePointer(child: _Confetti()),
         // ألعاب نارية فوق القصاصات — نفس ألوان اللعبة وحدودها الحبرية.
-        const IgnorePointer(child: Fireworks()),
+        // فرقعات مع كل دورة ألعاب نارية (الصوت الكبير بيجي من cuesFor
+        // لما تصير المرحلة gameOver).
+        IgnorePointer(child: FireworksCues(child: const Fireworks())),
       ],
     );
   }

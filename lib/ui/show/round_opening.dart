@@ -12,6 +12,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../feedback/game_feedback.dart';
 
 import '../../game/models.dart';
 import '../arabic_numerals.dart';
@@ -117,7 +118,10 @@ class _RoundOpeningState extends State<RoundOpening> {
   @override
   void initState() {
     super.initState();
-    _schedule();
+    // بعد أول إطار — `GameFeedbackScope.maybeOf` بدها سياق مبني.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _schedule();
+    });
   }
 
   @override
@@ -132,6 +136,9 @@ class _RoundOpeningState extends State<RoundOpening> {
 
   void _schedule() {
     _timer?.cancel();
+    // صوت كل مشهد لحظة ما يبلّش: بداية الجولة (كرت بيطير وبيخبط)، وبعدها
+    // «استعدوا» (صعود وضربة). فتح الزر بينسمع لما يخلص الافتتاح كله.
+    GameFeedbackScope.maybeOf(context)?.play(_stage == 0 ? Cue.roundStart : Cue.versus);
     final wait = _stage == 0 ? _introSeconds : _versusSeconds;
     _timer = Timer(Duration(milliseconds: (wait * 1000).round()), () {
       if (!mounted) return;
@@ -139,6 +146,7 @@ class _RoundOpeningState extends State<RoundOpening> {
         setState(() => _stage = 1);
         _schedule();
       } else {
+        GameFeedbackScope.maybeOf(context)?.play(Cue.faceOffOpen);
         widget.onDone();
       }
     });

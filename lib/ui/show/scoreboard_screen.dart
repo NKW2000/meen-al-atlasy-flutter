@@ -10,6 +10,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../feedback/game_cues.dart';
+import '../../feedback/game_feedback.dart';
+
 import '../../game/models.dart';
 import '../arabic_numerals.dart';
 import '../components/buttons.dart';
@@ -36,11 +39,15 @@ class ScoreboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final roundNumber = state.currentQuestionIndex + 1;
     final award = state.lastAward;
-    final scores = {for (final id in TeamId.values) id: state.teams[id]?.score ?? 0};
+    final scores = {
+      for (final id in TeamId.values) id: state.teams[id]?.score ?? 0,
+    };
     final top = math.max(1, scores.values.reduce(math.max));
     final TeamId? leader = scores[TeamId.team1] == scores[TeamId.team2]
         ? null
-        : (scores[TeamId.team1]! > scores[TeamId.team2]! ? TeamId.team1 : TeamId.team2);
+        : (scores[TeamId.team1]! > scores[TeamId.team2]!
+              ? TeamId.team1
+              : TeamId.team2);
     final short = shortSide(context);
     final portrait = isPortrait(context);
 
@@ -49,71 +56,90 @@ class ScoreboardScreen extends StatelessWidget {
       cap: 4,
       builder: (context, t) {
         final counted = ((t - countStart) / countTime).clamp(0.0, 1.0);
-        return LayoutBuilder(
-          builder: (context, constraints) => Stack(
-            fit: StackFit.expand,
-            children: [
-              const SpinningRays(),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      DropTitle(
-                        text: 'نتيجة الجولة ${roundNumber.ar()}/${state.questions.length.ar()}',
-                        t: t,
-                      ),
-                      if (award != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          award.stolen
-                              ? 'سرقة! ${state.teams[award.teamId]?.name ?? ''} أخد ${award.points.ar()}'
-                              : '${state.teams[award.teamId]?.name ?? ''} أخد ${award.points.ar()}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: FeudText.titleMedium(context)
-                              .copyWith(color: award.stolen ? FeudColors.pink : FeudColors.lime),
-                        ),
-                      ],
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: TeamPanels(
-                          state: state,
-                          scores: scores,
-                          top: top,
-                          crowned: leader,
-                          counted: counted,
+        return TimedCues(
+          t: t,
+          sceneKey: roundNumber,
+          cues: {
+            countStart: Cue.scoreCount,
+            if (leader != null) crownAt: Cue.crown,
+            if (leader != null) bannerAt: Cue.banner,
+          },
+          child: LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              fit: StackFit.expand,
+              children: [
+                const SpinningRays(),
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        DropTitle(
+                          text:
+                              'نتيجة الجولة ${roundNumber.ar()}/${state.questions.length.ar()}',
                           t: t,
-                          portrait: portrait,
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      // لافتة «مين بالمقدمة» بتكنس عرض الشاشة زي التصميم.
-                      LeadBanner(
-                        text: leader == null
-                            ? 'تعادل'
-                            : '${state.teams[leader]?.name ?? ''} بالمقدمة',
-                        width: constraints.maxWidth,
-                        height: (short * 0.14).clamp(48.0, 74.0),
-                        offsetFraction: wipe(t, bannerAt),
-                      ),
-                      const SizedBox(height: 10),
-                      if (onContinue != null)
-                        PrimaryButton(
-                          text: state.isLastRound ? 'النتيجة النهائية' : 'الجولة الجاية',
-                          onClick: onContinue!,
-                        )
-                      else
-                        Text(
-                          'بانتظار المضيف يبلّش الجولة الجاية',
-                          style: FeudText.titleSmall(context).copyWith(color: FeudColors.textMuted),
+                        if (award != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            award.stolen
+                                ? 'سرقة! ${state.teams[award.teamId]?.name ?? ''} أخد ${award.points.ar()}'
+                                : '${state.teams[award.teamId]?.name ?? ''} أخد ${award.points.ar()}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: FeudText.titleMedium(context).copyWith(
+                              color: award.stolen
+                                  ? FeudColors.pink
+                                  : FeudColors.lime,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: TeamPanels(
+                            state: state,
+                            scores: scores,
+                            top: top,
+                            crowned: leader,
+                            counted: counted,
+                            t: t,
+                            portrait: portrait,
+                          ),
                         ),
-                    ],
+                        const SizedBox(height: 10),
+                        // لافتة «مين بالمقدمة» بتكنس عرض الشاشة زي التصميم.
+                        LeadBanner(
+                          text: leader == null
+                              ? 'تعادل'
+                              : '${state.teams[leader]?.name ?? ''} بالمقدمة',
+                          width: constraints.maxWidth,
+                          height: (short * 0.14).clamp(48.0, 74.0),
+                          offsetFraction: wipe(t, bannerAt),
+                        ),
+                        const SizedBox(height: 10),
+                        if (onContinue != null)
+                          PrimaryButton(
+                            text: state.isLastRound
+                                ? 'النتيجة النهائية'
+                                : 'الجولة الجاية',
+                            onClick: onContinue!,
+                          )
+                        else
+                          Text(
+                            'بانتظار المضيف يبلّش الجولة الجاية',
+                            style: FeudText.titleSmall(context)
+                                .copyWith(color: FeudColors.textMuted),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -130,7 +156,8 @@ class DropTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = FeudText.headlineSmall(context).copyWith(color: FeudColors.gold);
+    final style = FeudText.headlineSmall(context)
+        .copyWith(color: FeudColors.gold);
     final lineHeight = style.fontSize! * (style.height ?? 1.2);
     return Opacity(
       opacity: appear(t, 0.04, 0.08),
@@ -230,7 +257,9 @@ class TeamPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scoreColor = teamId == TeamId.team1 ? teamId.inkColor() : FeudColors.cream;
+    final scoreColor = teamId == TeamId.team1
+        ? teamId.inkColor()
+        : FeudColors.cream;
     final shownText = math.min(shown, score).ar();
 
     return LayoutBuilder(
@@ -238,11 +267,8 @@ class TeamPanel extends StatelessWidget {
         // الرقم بياخد قياسه من أصغر بُعد باللوح — حتى ما ينفجر بالطولي.
         final basis = math.min(constraints.maxHeight, constraints.maxWidth);
         final scoreSize = wide ? basis * 0.26 : basis * 0.34;
-        final scoreStyle = FeudText.displayLarge(context).copyWith(
-          color: scoreColor,
-          fontSize: scoreSize,
-          height: 1.06,
-        );
+        final scoreStyle = FeudText.displayLarge(context)
+            .copyWith(color: scoreColor, fontSize: scoreSize, height: 1.06);
 
         // بالطولي المتقدّم بيضوي بإطار ذهبي بينبض — زي التصميم.
         final glow = math.max(0.0, (t - crownAt) * 1.4);
@@ -264,9 +290,13 @@ class TeamPanel extends StatelessWidget {
                       IgnorePointer(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(FeudShape.block),
+                            borderRadius: BorderRadius.circular(
+                              FeudShape.block,
+                            ),
                             border: Border.all(
-                              color: FeudColors.gold.withValues(alpha: glowAlpha.clamp(0, 1)),
+                              color: FeudColors.gold.withValues(
+                                alpha: glowAlpha.clamp(0, 1),
+                              ),
                               width: 5,
                             ),
                           ),
@@ -284,7 +314,10 @@ class TeamPanel extends StatelessWidget {
                         ),
                       ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -310,8 +343,8 @@ class TeamPanel extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style:
-                                  FeudText.titleMedium(context).copyWith(color: teamId.inkColor()),
+                              style: FeudText.titleMedium(context)
+                                  .copyWith(color: teamId.inkColor()),
                             ),
                             Text(shownText, maxLines: 1, style: scoreStyle),
                           ],
@@ -330,7 +363,9 @@ class TeamPanel extends StatelessWidget {
                                   child: const DecoratedBox(
                                     decoration: BoxDecoration(
                                       color: FeudColors.ink,
-                                      borderRadius: BorderRadius.all(Radius.circular(999)),
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(999),
+                                      ),
                                     ),
                                   ),
                                 ),
