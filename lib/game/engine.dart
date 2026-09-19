@@ -212,6 +212,8 @@ class GameEngine {
       if (index == 0) {
         return revealed.offerChoice(team);
       }
+      // الخصم بيبلّش من نفس الوقت الكامل — مش من الباقي (كان ناقص هون،
+      // وموجود بمسار «غلط» — فالخصم كان ياخد الفتات).
       return revealed.copyWith(
         phase: RoundPhase.faceOffSecond,
         buzzState: BuzzState.closed,
@@ -219,6 +221,7 @@ class GameEngine {
         faceOffLeader: team,
         faceOffLeaderPoints: answer.points,
         buzzedPlayerId: null,
+        answerSecondsLeft: _state.answerLimitSeconds,
       );
     }
 
@@ -405,6 +408,13 @@ class GameEngine {
   }
 
   GameState _handlePlayerLeft(PlayerLeft event) {
+    // قبل ما تبلّش اللعبة ما في رقم ولا نقاط نحافظ عليهن — اللي بيطلع
+    // بيروح من اللستة (وإلا لما يرجع باسم تاني بيطلع مرتين). بعد ما تبلّش
+    // بيضل «منقطع» بنفس رقمه حتى يرجع لنفس مكانه.
+    if (!_state.matchStarted) {
+      final remaining = _state.players.where((p) => p.id != event.playerId).toList();
+      return _state.copyWith(players: remaining).renumbered().withTeamsConnected();
+    }
     final players = _state.players
         .map((p) => p.id == event.playerId ? p.copyWith(connected: false) : p)
         .toList();

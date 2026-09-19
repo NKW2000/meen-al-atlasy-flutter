@@ -10,8 +10,11 @@
 /// منفّذ عن `PlayerScreen` بـ`PlayerScreen.kt` بالمشروع الأصلي (Kotlin).
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../feedback/game_feedback.dart';
 import '../../game/models.dart';
 import '../../network/player_client.dart';
 import '../components/strikes.dart';
@@ -99,7 +102,14 @@ class PlayerScreen extends StatelessWidget {
           teamId: teamId,
           mark: mark,
           status: status,
-          onAnswer: canAnswer && !answering ? onBuzz : null,
+          onAnswer: canAnswer && !answering
+              ? () {
+                  // الدقّات بتسكت بلحظتها — بدون ما نستنى المضيف يرجّع الحالة
+                  // (clockPaused بيثبّت السكوت بعدها).
+                  unawaited(GameFeedbackScope.maybeOf(context)?.stopClocks());
+                  onBuzz();
+                }
+              : null,
           showAnswer: showAnswer,
           answering: answering,
         ),

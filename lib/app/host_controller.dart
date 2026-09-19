@@ -154,7 +154,9 @@ class HostController extends ChangeNotifier {
 
   /// حالة جديدة من [newGame] مع إعادة انضمام نفس اللاعبين، وبثّها للكل.
   void _rebuildWithPlayers() {
-    final players = List<Player>.of(_engine.state.players);
+    // بس اللي لسا متّصلين — اللي طلع بنص اللعبة وما رجع ما إلو مكان
+    // باللوبي الجديد (كان بيرجع يظهر «متّصل» وجهازه مش موجود).
+    final players = _engine.state.players.where((p) => p.connected).toList();
     _engine.reset(newGame());
     for (final player in players) {
       _engine.apply(PlayerJoined(player.id, player.name, player.teamId));
@@ -409,6 +411,9 @@ class HostController extends ChangeNotifier {
   /// (خلص الوقت فصار خطأ، أو انتقل الدور) منبعت الحالة كاملة متل أي حدث.
   void _tickAndBroadcast(GameState before) {
     final after = _engine.apply(const Tick());
+    // العدّاد واقف (لاعب دوس «بجاوب») — الثانية ما غيّرت إشي، فما منبعت
+    // حزمة عدّاد مكرّرة كل ثانية لكل الأجهزة.
+    if (after == before) return;
     final onlyClockMoved = after.copyWith(
           answerSecondsLeft: before.answerSecondsLeft,
           choiceSecondsLeft: before.choiceSecondsLeft,

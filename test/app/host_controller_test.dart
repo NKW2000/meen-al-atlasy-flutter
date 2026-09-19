@@ -272,6 +272,8 @@ void main() {
     final vm = controller();
     join(transport, ['ep-a', 'ep-b']);
     await pump();
+    // بعد ما تبلّش اللعبة — باللوبي اللي بيطلع بيروح من اللستة أصلاً.
+    vm.startGame();
     transport.emit(ClientDisconnected('ep-a'));
     await pump();
 
@@ -297,6 +299,7 @@ void main() {
     final vm = controller();
     join(transport, ['ep-a', 'ep-b']);
     await pump();
+    vm.startGame();
     transport.emit(ClientDisconnected('ep-a'));
     await pump();
     expect(vm.state.player('ep-a')!.connected, isFalse);
@@ -670,6 +673,42 @@ void main() {
     // وبرقم الدور الحالي بتزبط عادي.
     vm.judgeWrong(turn: vm.state.answerTurn);
     expect(vm.state.phase, isNot(RoundPhase.faceOffSecond));
+  });
+
+  test('backToLobby drops players who left during the game', () async {
+    final vm = controller();
+    await vm.startHosting();
+    join(transport, ['ep-a', 'ep-b', 'ep-c']);
+    await pump();
+    vm.startGame();
+
+    // ep-c راح بنص اللعبة وما رجع.
+    transport.emit(ClientDisconnected('ep-c'));
+    await pump();
+    expect(vm.state.player('ep-c')!.connected, isFalse);
+
+    await vm.backToLobby();
+
+    expect(vm.state.players.map((p) => p.id), ['ep-a', 'ep-b']);
+    expect(vm.state.players.every((p) => p.connected), isTrue);
+  });
+
+  test('a player who leaves the lobby is gone, and rejoining with a new name '
+      'does not leave two entries', () async {
+    final vm = controller();
+    await vm.startHosting();
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    expect(vm.state.players, hasLength(2));
+
+    // ep-b طلع ليغيّر اسمه، ورجع باتصال جديد واسم جديد.
+    transport.emit(ClientDisconnected('ep-b'));
+    await pump();
+    transport.emit(ClientMessageReceived('ep-c', JoinMessage(playerName: 'اسم جديد')));
+    await pump();
+
+    expect(vm.state.players.map((p) => p.name), ['ep-a', 'اسم جديد']);
+    expect(vm.state.players.map((p) => p.seat), [1, 1]);
   });
 
   test('endGame stops the clock', () async {

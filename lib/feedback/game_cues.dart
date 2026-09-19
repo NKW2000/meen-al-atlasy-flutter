@@ -85,13 +85,22 @@ class _GameCuesState extends State<GameCues> {
 }
 
 /// دقّات الساعة بآخر [from] ثواني من وقت الجواب. بتبلّش مرة وحدة لما يوصل
-/// العدّاد لخمسة، وبتسكت إذا انحكم على الجواب قبل ما يخلص الوقت.
+/// العدّاد لخمسة، وبتسكت إذا انحكم على الجواب قبل ما يخلص الوقت — أو إذا
+/// وقف العدّاد ([paused]: اللاعب دوس «بجاوب»). بدون [paused] كانت الدقّات
+/// تكمّل والعدّاد واقف على ٣، فبيحس اللاعب إنه الوقت لسا ماشي.
 class CountdownCues extends StatefulWidget {
   final int seconds;
   final int from;
+  final bool paused;
   final Widget child;
 
-  const CountdownCues({super.key, required this.seconds, this.from = 5, required this.child});
+  const CountdownCues({
+    super.key,
+    required this.seconds,
+    this.from = 5,
+    this.paused = false,
+    required this.child,
+  });
 
   @override
   State<CountdownCues> createState() => _CountdownCuesState();
@@ -110,7 +119,7 @@ class _CountdownCuesState extends State<CountdownCues> {
     _feedback = GameFeedbackScope.maybeOf(context);
   }
 
-  bool _inWindow(int seconds) => seconds >= 1 && seconds <= widget.from;
+  bool _inWindow(int seconds) => !widget.paused && seconds >= 1 && seconds <= widget.from;
 
   @override
   void initState() {
@@ -121,7 +130,7 @@ class _CountdownCuesState extends State<CountdownCues> {
   @override
   void didUpdateWidget(CountdownCues oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.seconds != widget.seconds) _sync();
+    if (oldWidget.seconds != widget.seconds || oldWidget.paused != widget.paused) _sync();
   }
 
   void _sync() {

@@ -163,6 +163,8 @@ void main() {
 
   test('when the player whose turn it is drops, the turn moves on at once', () {
     final engine = GameEngine(freshState());
+    // لعبة شغّالة فعلاً — قبل ما تبلّش، اللي بيطلع بيروح من اللستة أصلاً.
+    engine.apply(const StartGame());
     engine.giveControlTo(TeamId.team1); // الدور على a2
     expect(engine.state.turnPlayerId, 'a2');
 

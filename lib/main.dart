@@ -593,6 +593,7 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
             state: live,
             child: CountdownCues(
               seconds: live == null ? 0 : math.max(live.answerSecondsLeft, live.choiceSecondsLeft),
+              paused: live?.clockPaused ?? false,
               child: ErrorSnackbar(
                 message: player.lastError,
                 onShown: player.dismissError,
@@ -705,6 +706,7 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
             forHost: true,
             child: CountdownCues(
               seconds: math.max(state.answerSecondsLeft, state.choiceSecondsLeft),
+              paused: state.clockPaused,
               child: ErrorSnackbar(
                 message: host.lastError,
                 onShown: host.dismissError,

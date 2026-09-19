@@ -182,6 +182,14 @@ class GameFeedback {
     }
   }
 
+  /// بيسكّت كل دقّات الساعة الشغّالة فوراً — اللاعب دوس «بجاوب» وما بدنا
+  /// نستنى الحالة ترجع من المضيف حتى يسكت الصوت.
+  Future<void> stopClocks() async {
+    for (final id in _streams.keys.toList()) {
+      await stopStream(id);
+    }
+  }
+
   Future<void> stopStream(int streamId) async {
     final player = _streams.remove(streamId);
     if (player == null) return;

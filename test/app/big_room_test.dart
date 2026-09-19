@@ -79,7 +79,7 @@ void main() {
     expect(onStage, {1, 2, 3, 4, 5, 6, 7, 8, 9});
   });
 
-  test('a player who leaves frees nobody else — the other 17 stay', () async {
+  test('a player who leaves the lobby just disappears — the other 17 stay', () async {
     final vm = controller();
     await vm.startHosting();
     join(transport, _eighteen());
@@ -88,9 +88,24 @@ void main() {
     transport.emit(ClientDisconnected('ep7'));
     await pump();
 
+    // باللوبي ما في رقم نحافظ عليه — بيروح من اللستة، والباقي بمكانهم.
+    expect(vm.state.players, hasLength(17));
+    expect(vm.state.player('ep7'), isNull);
+    expect(vm.canStart, isTrue);
+  });
+
+  test('a player who drops mid-game keeps their seat and score', () async {
+    final vm = controller();
+    await vm.startHosting();
+    join(transport, _eighteen());
+    await pump();
+    vm.startGame();
+
+    transport.emit(ClientDisconnected('ep7'));
+    await pump();
+
     expect(vm.state.players, hasLength(18));
     expect(vm.state.player('ep7')!.connected, isFalse);
     expect(vm.state.players.where((p) => p.connected), hasLength(17));
-    expect(vm.canStart, isTrue);
   });
 }

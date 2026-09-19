@@ -33,6 +33,27 @@ void main() {
     expect(engine.state.clockPaused, isFalse);
   });
 
+  test('the opponent gets the whole answer time after a correct-but-not-top answer',
+      () {
+    // الحالة الأشيع بالمواجهة: الأول جاوب صح بس مش الجواب رقم ١ — الخصم
+    // بياخد فرصته ليجيب أعلى. كان بياخدها بالوقت الباقي مش الكامل.
+    final engine = GameEngine(freshState());
+    final limit = engine.state.answerLimitSeconds;
+
+    engine.buzzPodium(TeamId.team1);
+    for (var i = 0; i < 6; i++) {
+      engine.apply(const Tick());
+    }
+    expect(engine.state.answerSecondsLeft, limit - 6);
+
+    engine.correct(2); // «التالت» — صح بس مش الأعلى
+
+    expect(engine.state.phase, RoundPhase.faceOffSecond);
+    expect(engine.state.faceOffTeam, TeamId.team2);
+    expect(engine.state.answerSecondsLeft, limit, reason: 'الخصم يبلّش من الأول');
+    expect(engine.state.clockPaused, isFalse);
+  });
+
   test('the opponent gets the whole answer time when the clock runs out', () {
     final engine = GameEngine(freshState());
     final limit = engine.state.answerLimitSeconds;
