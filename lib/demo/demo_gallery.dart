@@ -192,7 +192,7 @@ List<_DemoScreen> _demoScreens(
         minPerTeam: HostController.minPlayersPerTeam,
         ip: InternetAddress('192.168.43.1'),
         onStartHosting: () {},
-        onMovePlayer: (_, _) {},
+        onKickPlayer: (_) {},
         onBeginGame: () {},
       ),
     ),
@@ -320,6 +320,7 @@ List<_DemoScreen> _demoScreens(
         mark: PlayerMark.idle,
         status: ConnectionStatus.connected,
         onBuzz: () {},
+        roomCode: '11009',
       ),
     ),
     _DemoScreen(

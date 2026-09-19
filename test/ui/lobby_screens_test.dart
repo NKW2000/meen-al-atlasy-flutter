@@ -67,9 +67,9 @@ void main() {
       );
 
       expect(find.text('غرفة العيلة'), findsOneWidget);
-      expect(find.text('الواي فاي: 192.168.43.1'), findsOneWidget);
-      // ٤٣×٢٥٦+١ = ١١٠٠٩ — اللاعب بيكتبه لو ما بانت الغرفة عنده باللستة.
-      expect(find.text('الكود: ١١٠٠٩'), findsOneWidget);
+      // الكود بدل عنوان الواي فاي: ٤٣×٢٥٦+١ = ١١٠٠٩.
+      expect(find.text('كود الغرفة: ١١٠٠٩'), findsOneWidget);
+      expect(find.textContaining('192.168'), findsNothing);
       expect(find.text('لازم الكل يكون على نفس الواي فاي أو نقطة اتصال المضيف'), findsOneWidget);
       expect(find.text('جاهزين — يلا نبلّش'), findsOneWidget);
     });
@@ -119,8 +119,8 @@ void main() {
       expect(started, isFalse);
     });
 
-    testWidgets('the move button sends the player to the other team', (tester) async {
-      final moves = <(String, TeamId)>[];
+    testWidgets('the kick button removes that player', (tester) async {
+      final kicked = <String>[];
       await _pumpLandscape(
         tester,
         HostLobbyScreen(
@@ -132,14 +132,14 @@ void main() {
           ip: InternetAddress('192.168.43.1'),
           onStartHosting: () {},
           onBeginGame: () {},
-          onMovePlayer: (id, team) => moves.add((id, team)),
+          onKickPlayer: kicked.add,
         ),
       );
 
-      // ليلى بالفريق التاني — زر التبديل تبعها هو التالت بالترتيب.
-      await tester.tap(find.text('بدّل ⇄').at(2));
+      // ليلى بالفريق التاني — زر الطرد تبعها هو التالت بالترتيب.
+      await tester.tap(find.text('طرد ✕').at(2));
       await tester.pump();
-      expect(moves, [('b1', TeamId.team1)]);
+      expect(kicked, ['b1']);
     });
 
     testWidgets('portrait stacks the teams and still fits the buttons', (tester) async {
@@ -192,6 +192,36 @@ void main() {
 
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.controller!.text.length, 14);
+    });
+  });
+
+  group('PlayerLobbyScreen room code', () {
+    testWidgets('shows the room code so the player can pass it on', (tester) async {
+      final state = freshState().copyWith(matchStarted: false);
+      await _pumpPortrait(
+        tester,
+        PlayerLobbyScreen(
+          state: state,
+          playerId: 'a1',
+          teamId: TeamId.team1,
+          onChangeTeam: (_) {},
+          roomCode: '11009',
+        ),
+      );
+      expect(find.text('كود الغرفة: ١١٠٠٩'), findsOneWidget);
+
+      await _pumpLandscape(
+        tester,
+        PlayerLobbyScreen(
+          state: state,
+          playerId: 'a1',
+          teamId: TeamId.team1,
+          onChangeTeam: (_) {},
+          roomCode: '11009',
+        ),
+      );
+      expect(find.text('كود الغرفة: ١١٠٠٩'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 

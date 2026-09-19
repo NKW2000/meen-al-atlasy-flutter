@@ -38,7 +38,7 @@ String roomCodeOf(InternetAddress ip) {
   }
 }
 
-void _noMove(String _, TeamId _) {}
+void _noKick(String _) {}
 
 class HostLobbyScreen extends StatelessWidget {
   final String roomName;
@@ -52,7 +52,8 @@ class HostLobbyScreen extends StatelessWidget {
   final InternetAddress? ip;
   final VoidCallback onStartHosting;
   final VoidCallback onBeginGame;
-  final void Function(String playerId, TeamId to) onMovePlayer;
+  /// طرد لاعب من الغرفة — قبل ما تبلّش اللعبة.
+  final void Function(String playerId) onKickPlayer;
 
   const HostLobbyScreen({
     super.key,
@@ -64,7 +65,7 @@ class HostLobbyScreen extends StatelessWidget {
     required this.ip,
     required this.onStartHosting,
     required this.onBeginGame,
-    this.onMovePlayer = _noMove,
+    this.onKickPlayer = _noKick,
   });
 
   @override
@@ -132,7 +133,7 @@ class HostLobbyScreen extends StatelessWidget {
                               team: teams[teamId],
                               teamId: teamId,
                               players: players.where((p) => p.teamId == teamId).toList(),
-                              onMovePlayer: onMovePlayer,
+                              onKickPlayer: onKickPlayer,
                               expand: false,
                             ),
                           ],
@@ -149,7 +150,7 @@ class HostLobbyScreen extends StatelessWidget {
                               team: teams[teamId],
                               teamId: teamId,
                               players: players.where((p) => p.teamId == teamId).toList(),
-                              onMovePlayer: onMovePlayer,
+                              onKickPlayer: onKickPlayer,
                             ),
                           ),
                         ],
@@ -214,20 +215,14 @@ class _NetworkStrip extends StatelessWidget {
             ),
             if (ip == null)
               const Pill(text: noWifiHint, color: FeudColors.pink, textColor: FeudColors.cream)
-            else ...[
+            else
+              // كود الغرفة بدل عنوان الواي فاي (طلب المستخدم): لو ما بانت
+              // الغرفة عند حدا بيكتب هالخمس أرقام بشاشة «أي غرفة؟».
               Pill(
-                text: 'الواي فاي: ${ip.address}',
-                color: FeudColors.stageAlt,
-                textColor: FeudColors.cream,
-              ),
-              // كود الغرفة: لو ما بانت الغرفة عند حدا (راوتر بيفلتر البثّ)
-              // بيكتب هالخمس أرقام بشاشة «أي غرفة؟» وبيفوت مباشرة.
-              Pill(
-                text: 'الكود: ${roomCodeOf(ip)}',
+                text: 'كود الغرفة: ${roomCodeOf(ip)}',
                 color: FeudColors.gold,
                 textColor: FeudColors.ink,
               ),
-            ],
           ],
         ),
         const SizedBox(height: 4),
@@ -296,7 +291,7 @@ class _TeamColumn extends StatelessWidget {
   final TeamState? team;
   final TeamId teamId;
   final List<Player> players;
-  final void Function(String, TeamId) onMovePlayer;
+  final void Function(String) onKickPlayer;
 
   /// بالوضع الطولي الكرت بياخد ارتفاع محتواه بس — لأنه جوّا تمرير.
   final bool expand;
@@ -305,7 +300,7 @@ class _TeamColumn extends StatelessWidget {
     required this.team,
     required this.teamId,
     required this.players,
-    required this.onMovePlayer,
+    required this.onKickPlayer,
     this.expand = true,
   });
 
@@ -333,7 +328,7 @@ class _TeamColumn extends StatelessWidget {
             child: _PlayerRow(
               player: players[i],
               teamId: teamId,
-              onMove: () => onMovePlayer(players[i].id, teamId.other),
+              onKick: () => onKickPlayer(players[i].id),
             ),
           ),
         ),
@@ -348,7 +343,7 @@ class _TeamColumn extends StatelessWidget {
               child: _PlayerRow(
                 player: player,
                 teamId: teamId,
-                onMove: () => onMovePlayer(player.id, teamId.other),
+                onKick: () => onKickPlayer(player.id),
               ),
             ),
         ],
@@ -400,9 +395,9 @@ class _TeamColumn extends StatelessWidget {
 class _PlayerRow extends StatelessWidget {
   final Player player;
   final TeamId teamId;
-  final VoidCallback onMove;
+  final VoidCallback onKick;
 
-  const _PlayerRow({required this.player, required this.teamId, required this.onMove});
+  const _PlayerRow({required this.player, required this.teamId, required this.onKick});
 
   @override
   Widget build(BuildContext context) {
@@ -420,18 +415,19 @@ class _PlayerRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        // نقل اللاعب للفريق التاني قبل ما تبلّش اللعبة.
+        // طرد اللاعب من الغرفة (طلب المستخدم — بدل نقله للفريق التاني؛
+        // اللاعب بيبدّل فريقه من جهازه). بيوصله سبب الطرد وبيرجع للستة الغرف.
         CartoonSurface(
-          color: FeudColors.gold,
+          color: FeudColors.pink,
           borderWidth: 3,
           corner: FeudShape.block,
           shadow: 3,
-          onClick: onMove,
+          onClick: onKick,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: Text(
-              'بدّل ⇄',
-              style: FeudText.labelSmall(context).copyWith(color: FeudColors.ink),
+              'طرد ✕',
+              style: FeudText.labelSmall(context).copyWith(color: FeudColors.cream),
             ),
           ),
         ),

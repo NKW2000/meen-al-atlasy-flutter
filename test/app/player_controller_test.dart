@@ -392,6 +392,15 @@ void main() {
     expect(controller.discovering, isTrue);
   });
 
+  test('the room code follows the host we connected to', () async {
+    expect(controller.roomCode, isNull);
+    controller.join('ليلى');
+    await controller.enterRoom(Room('غرفة', InternetAddress('192.168.43.1'), 4000));
+
+    // ٤٣×٢٥٦+١ = ١١٠٠٩ — نفس اللي بيبيّن عند المضيف.
+    expect(controller.roomCode, '11009');
+  });
+
   test('rejoin does nothing before a name was ever set', () async {
     await controller.rejoin();
     expect(transport.rejoinCalls, equals(0));

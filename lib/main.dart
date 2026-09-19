@@ -421,7 +421,7 @@ class _HostLobbyRouteState extends State<_HostLobbyRoute> {
           minPerTeam: HostController.minPlayersPerTeam,
           ip: _ip,
           onStartHosting: () => unawaited(host.startHosting()),
-          onMovePlayer: host.movePlayer,
+          onKickPlayer: host.kickPlayer,
           onBeginGame: () {
             if (!host.canStart) return;
             host.startGame();
@@ -611,6 +611,7 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
               onBuzz: player.onBuzzTapped,
               onChoose: player.choose,
               onChangeTeam: player.changeTeam,
+              roomCode: player.roomCode,
             );
           }
 

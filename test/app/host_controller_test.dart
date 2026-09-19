@@ -772,6 +772,40 @@ void main() {
     expect(vm.state.answerSecondsLeft, limit - 1);
   });
 
+  test('kickPlayer tells the player why, closes them, and drops them from the lobby',
+      () async {
+    final vm = controller();
+    join(transport, ['ep-a', 'ep-b', 'ep-c']);
+    await pump();
+    expect(vm.state.players, hasLength(3));
+
+    vm.kickPlayer('ep-b');
+    await pump();
+
+    final toB = transport.sends.where((s) => s.$1 == 'ep-b').map((s) => s.$2);
+    expect(toB, contains(isA<Rejected>()));
+    expect(transport.closed, contains('ep-b'));
+    expect(vm.state.players.map((p) => p.id), ['ep-a', 'ep-c']);
+
+    // إشعار الانقطاع المتأخّر تبع نفس نقطة النهاية ما بيعمل إشي.
+    transport.emit(ClientDisconnected('ep-b'));
+    await pump();
+    expect(vm.state.players, hasLength(2));
+  });
+
+  test('kickPlayer is a no-op once the game has started', () async {
+    final vm = controller();
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+
+    vm.kickPlayer('ep-b');
+    await pump();
+
+    expect(vm.state.players, hasLength(2));
+    expect(transport.closed, isNot(contains('ep-b')));
+  });
+
   test('endGame stops the clock', () async {
     final vm = controller(tick: const Duration(milliseconds: 10));
     join(transport, ['ep-a', 'ep-b']);

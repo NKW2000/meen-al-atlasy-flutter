@@ -89,6 +89,9 @@ class PlayerController extends ChangeNotifier {
   /// المضيف رفضنا — الشاشة بترجع للستة الغرف (بينمسح مع أول اتصال جديد).
   bool _rejected = false;
 
+  /// عنوان المضيف اللي متّصلين فيه — منه كود الغرفة اللي بيبيّن للاعب.
+  InternetAddress? _hostAddress;
+
   List<Room> _rooms = [];
   UserError? _lastError;
 
@@ -99,6 +102,14 @@ class PlayerController extends ChangeNotifier {
 
   /// المضيف رفض انضمامنا (شوف [_onRejected]).
   bool get rejected => _rejected;
+
+  /// كود الغرفة (٥ أرقام) — نفس اللي عند المضيف، حتى اللاعب يقدر يعطيه
+  /// لغيره. `null` قبل الاتصال أو لما العنوان مش IPv4.
+  String? get roomCode {
+    final host = _hostAddress;
+    if (host == null || host.type != InternetAddressType.IPv4) return null;
+    return encodeRoomCode(host);
+  }
 
   /// كم مرة منحاول نرجع لحالنا قبل ما نسأل اللاعب. انقطاع الواي فاي
   /// القصير (جهاز نام، أو إشارة ضعيفة لثانية) بيخلص قبل هالمدة، فاللاعب
@@ -199,6 +210,7 @@ class PlayerController extends ChangeNotifier {
     _leftOnPurpose = false;
     _rejected = false;
     _rejoinAttempt = 0;
+    _hostAddress = host;
     try {
       await client.connect(
         host: host,

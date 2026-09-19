@@ -8,6 +8,8 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../game/models.dart';
+import '../arabic_numerals.dart';
+import '../components/buttons.dart';
 import '../components/seat_badge.dart';
 import '../components/stage.dart';
 import '../components/strikes.dart';
@@ -20,12 +22,16 @@ class PlayerLobbyScreen extends StatelessWidget {
   final TeamId? teamId;
   final void Function(TeamId team) onChangeTeam;
 
+  /// كود الغرفة (٥ أرقام) — بيبيّن حتى يعطيه اللاعب لغيره. اختياري.
+  final String? roomCode;
+
   const PlayerLobbyScreen({
     super.key,
     required this.state,
     required this.playerId,
     required this.teamId,
     required this.onChangeTeam,
+    this.roomCode,
   });
 
   @override
@@ -39,6 +45,14 @@ class PlayerLobbyScreen extends StatelessWidget {
       style: FeudText.titleMedium(context).copyWith(color: FeudColors.gold),
       maxLines: 1,
     );
+    final code = roomCode;
+    final codePill = code == null
+        ? null
+        : Pill(
+            text: 'كود الغرفة: ${code.arDigits()}',
+            color: FeudColors.gold,
+            textColor: FeudColors.ink,
+          );
 
     return Container(
       color: FeudColors.stage,
@@ -67,7 +81,12 @@ class PlayerLobbyScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                waiting,
+                Row(
+                  children: [
+                    Expanded(child: waiting),
+                    ?codePill,
+                  ],
+                ),
               ] else
                 Row(
                   children: [
@@ -82,6 +101,7 @@ class PlayerLobbyScreen extends StatelessWidget {
                       ),
                     ],
                     const Spacer(),
+                    if (codePill != null) ...[codePill, const SizedBox(width: 10)],
                     waiting,
                   ],
                 ),

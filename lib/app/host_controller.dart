@@ -200,6 +200,19 @@ class HostController extends ChangeNotifier {
     }
   }
 
+  /// المضيف طرد لاعب من اللوبي: بيوصله السبب، بينسكّر اتصاله، وبيروح من
+  /// اللستة (`PlayerLeft` باللوبي بيشيله). بعد ما تبلّش اللعبة ما في طرد.
+  void kickPlayer(String playerId) {
+    if (_started) return;
+    final endpointId = _playerToEndpoint.remove(playerId);
+    if (endpointId != null) {
+      _endpointToPlayer.remove(endpointId);
+      server.send(endpointId, Rejected(reason: 'المضيف طردك من الغرفة'));
+      unawaited(server.close(endpointId));
+    }
+    _applyAndBroadcast(PlayerLeft(playerId));
+  }
+
   void startGame() {
     // شاشة اللوبي بتعطّل الزر، بس الحارس هون كمان: لعبة بفريق فاضي ما
     // إلها مواجهة وبتعلق عالمنصة.

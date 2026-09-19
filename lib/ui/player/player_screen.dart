@@ -36,6 +36,9 @@ class PlayerScreen extends StatelessWidget {
   final void Function(bool play) onChoose;
   final void Function(TeamId team) onChangeTeam;
 
+  /// كود الغرفة — بيبيّن باللوبي حتى يعطيه اللاعب لغيره. اختياري.
+  final String? roomCode;
+
   const PlayerScreen({
     super.key,
     required this.state,
@@ -46,6 +49,7 @@ class PlayerScreen extends StatelessWidget {
     required this.onBuzz,
     this.onChoose = _noChoose,
     this.onChangeTeam = _noChangeTeam,
+    this.roomCode,
   });
 
   @override
@@ -61,6 +65,7 @@ class PlayerScreen extends StatelessWidget {
         playerId: playerId,
         teamId: teamId,
         onChangeTeam: onChangeTeam,
+        roomCode: roomCode,
       );
     }
 
