@@ -36,6 +36,7 @@ import '../ui/show/round_opening.dart';
 import '../ui/show/scoreboard_screen.dart';
 import '../ui/theme.dart';
 import 'demo_data.dart';
+import 'sound_board.dart';
 
 class _DemoScreen {
   final String title;
@@ -162,6 +163,7 @@ List<_DemoScreen> _demoScreens(
   ];
 
   return [
+    _DemoScreen('لوح الأصوات', (_) => const SoundBoardScreen()),
     _DemoScreen('المقدمة', (_) => IntroScreen(onDone: () {})),
     _DemoScreen(
       'الرئيسية',
