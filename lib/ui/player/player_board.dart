@@ -85,14 +85,24 @@ class PlayerBoard extends StatelessWidget {
                 // بلوك الدور بنفس ارتفاع خانات الأجوبة بالضبط. نقاط الفرق
                 // مش هون — بتبيّن بشاشة النتيجة بين الجولات.
                 //
-                // بمراحل الجواب الصف نفسه تبع المضيف: زر «بجاوب» عاليسار
-                // وبلوك الدور عاليمين، نصّ ونصّ. الصف مثبّت LTR حتى
-                // «يسار/يمين» ما تنقلب بالـ RTL — نفس `HostGameBoardScreen`.
+                // بمراحل الجواب صف نصّ ونصّ بنفس ارتفاع خانة الجواب: بلوك
+                // الدور عاليسار وزر «بجاوب» عاليمين (طلب المستخدم — معكوس عن
+                // صف المضيف). الصف مثبّت LTR حتى «يسار/يمين» ما تنقلب بالـ RTL.
                 footer: showAnswer
                     ? Row(
                         textDirection: TextDirection.ltr,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          Expanded(
+                            child: TurnBlock(
+                              state: state,
+                              playerId: playerId,
+                              teamId: teamId,
+                              mark: mark,
+                              status: status,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: FlatButton(
                               text: answering ? 'عم تجاوب' : 'بجاوب',
@@ -101,16 +111,6 @@ class PlayerBoard extends StatelessWidget {
                               shadow: FeudColors.ink,
                               enabled: !answering && onAnswer != null,
                               onClick: onAnswer ?? () {},
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TurnBlock(
-                              state: state,
-                              playerId: playerId,
-                              teamId: teamId,
-                              mark: mark,
-                              status: status,
                             ),
                           ),
                         ],

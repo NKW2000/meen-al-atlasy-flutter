@@ -327,9 +327,9 @@ void main() {
       }
     });
 
-    testWidgets('the answer button is the left half of the footer row, the role '
-        'block the right half — like the host board — and a long name on a '
-        'narrow phone does not break it', (tester) async {
+    testWidgets('the role block is the left half of the footer row, the answer '
+        'button the right half, and a long name on a narrow phone does not '
+        'break it', (tester) async {
       final longName = 'عبد الرحمن المحمد ا'; // ١٩ حرف — أطول اسم مسموح
       final playing = base.copyWith(
         players: [
@@ -363,8 +363,8 @@ void main() {
       expect((buttonBox.top - blockBox.top).abs(), lessThan(1));
       expect((buttonBox.height - blockBox.height).abs(), lessThan(1));
 
-      // نصّ ونصّ: الزر عاليسار وبلوك الدور عاليمين، وعرضهم واحد.
-      expect(buttonBox.right, lessThanOrEqualTo(blockBox.left));
+      // نصّ ونصّ: بلوك الدور عاليسار والزر عاليمين، وعرضهم واحد.
+      expect(blockBox.right, lessThanOrEqualTo(buttonBox.left));
       expect((buttonBox.width - blockBox.width).abs(), lessThan(2));
       expect(buttonBox.width, greaterThan(blockBox.width * 0.9));
     });
