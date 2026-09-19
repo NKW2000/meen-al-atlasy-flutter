@@ -2,6 +2,6 @@
 <resources>
     <!-- خلفية الأيقونة التكيّفية — نفس لون التطبيق الأصلي (Kotlin). -->
     <color name="ic_launcher_background">#2A1258</color>
-    <!-- خلفية النافذة (FeudColors.canvas) — ورا الواجهة ووقت الإقلاع. -->
+    <!-- خلفية النافذة (لون canvas بثيم التطبيق) — ورا الواجهة ووقت الإقلاع. -->
     <color name="canvas">#FF170A31</color>
 </resources>

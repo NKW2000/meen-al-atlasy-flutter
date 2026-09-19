@@ -14,7 +14,7 @@
 
 ## Global Constraints
 
-- Package name `meen_al_atlasy`; Android `applicationId` `com.feudparty.app`; `minSdk 26`, `targetSdk 34`; `version: 0.7.0+26`.
+- Package name `meen_al_atlasy`; Android `applicationId` نفس التطبيق الأصلي; `minSdk 26`, `targetSdk 34`; `version: 0.7.0+26`.
 - Engine files under `lib/game/` must not import `package:flutter`.
 - All user-facing text is Levantine Arabic copied verbatim from the Kotlin sources; numbers render as Arabic-Indic via `.ar()`.
 - RTL everywhere: `MaterialApp` wrapped in `Directionality(textDirection: TextDirection.rtl)`.
@@ -81,7 +81,7 @@ test/
 **Files:**
 - Create: `lib/game/models.dart`, `lib/game/settings.dart`
 - Create: `test/game/fixtures.dart`, `test/game/models_test.dart`, `test/game/settings_test.dart`
-- Port from: `$K/core-game/src/main/kotlin/com/feudparty/core/game/GameModels.kt`, `$K/app/src/main/kotlin/com/feudparty/app/settings/GameSettings.kt`, tests `GameModelsTest.kt`, `GameSettingsTest.kt`, `TestFixtures.kt`
+- Port from: `$K/core-game/src/main/kotlin/…/core/game/GameModels.kt`, `$K/app/src/main/kotlin/…/app/settings/GameSettings.kt`, tests `GameModelsTest.kt`, `GameSettingsTest.kt`, `TestFixtures.kt`
 
 **Interfaces (Produces):**
 
@@ -183,7 +183,7 @@ class GameEngine {
 **Files:**
 - Create: `lib/network/messages.dart`, `lib/network/room_code.dart`
 - Create: `test/network/messages_test.dart`, `test/network/room_code_test.dart`
-- Port from: `$K/core-network/src/main/kotlin/com/feudparty/core/network/Messages.kt`
+- Port from: `$K/core-network/src/main/kotlin/…/core/network/Messages.kt`
 
 **Interfaces (Produces):**
 
@@ -315,7 +315,7 @@ send(JoinMessage(playerName: playerName, teamId: teamId));
 **Files:**
 - Create: `lib/questions/bank.dart`, `lib/questions/bank_store.dart`, `assets/questions/starter_questions.json` (copy from `$K/data-questions/src/main/resources/starter_questions.json`)
 - Create: `test/questions/bank_test.dart`
-- Port from: `$K/data-questions/src/main/kotlin/com/feudparty/data/questions/*.kt` and the rules in `$K/docs/question-bank.md`
+- Port from: `$K/data-questions/src/main/kotlin/…/data/questions/*.kt` and the rules in `$K/docs/question-bank.md`
 
 **Interfaces (Produces):**
 
@@ -340,7 +340,7 @@ class BankStore { Future<List<Question>?> load(); Future<void> save(String name,
 **Files:**
 - Create: `lib/app/host_controller.dart`, `lib/app/player_controller.dart`, `lib/app/settings_repository.dart`, `lib/app/scope.dart`
 - Create: `test/app/host_controller_test.dart`
-- Port from: `$K/app/src/main/kotlin/com/feudparty/app/viewmodel/HostViewModel.kt`, `PlayerViewModel.kt`, `settings/SettingsRepository.kt`, tests `HostViewModelTest.kt`, `PlayerViewModelTest.kt`, `FakeNearbyConnectionsManager.kt`
+- Port from: `$K/app/src/main/kotlin/…/app/viewmodel/HostViewModel.kt`, `PlayerViewModel.kt`, `settings/SettingsRepository.kt`, tests `HostViewModelTest.kt`, `PlayerViewModelTest.kt`, `FakeNearbyConnectionsManager.kt`
 
 **Interfaces (Produces):**
 
@@ -377,7 +377,7 @@ Behaviour to carry over from `HostViewModel.kt` (read it; these are the non-obvi
 - Create: `lib/ui/theme.dart`, `lib/ui/arabic_numerals.dart`, `lib/ui/responsive.dart`, `lib/ui/motion/show_motion.dart`, `lib/ui/components/{stage,buttons,banners,info_blocks,score_header,strikes,countdown,fireworks,brand_logo,wordmark,confirm_dialog,name_prompt_dialog,answer_slot,settings_pieces}.dart`
 - Copy: `$K/app/src/main/res/font/*.ttf` → `assets/fonts/`; declare the two families in `pubspec.yaml` (weights 500/700/800).
 - Create: `test/ui/show_motion_test.dart`, `test/ui/arabic_numerals_test.dart`
-- Port from: `$K/app/src/main/kotlin/com/feudparty/app/ui/theme/Theme.kt`, `ui/ArabicNumerals.kt`, `ui/Responsive.kt`, `ui/components/*.kt`
+- Port from: `$K/app/src/main/kotlin/…/app/ui/theme/Theme.kt`, `ui/ArabicNumerals.kt`, `ui/Responsive.kt`, `ui/components/*.kt`
 
 **Interfaces (Produces):**
 
@@ -417,11 +417,11 @@ BoxDecoration blockSkin(Color color, {double border = 4, double shadow = 6, doub
 
 **Files:**
 - Create: `lib/ui/intro/intro_screen.dart`, `lib/ui/home/home_screen.dart`, `lib/ui/settings/bank_settings_screen.dart`, `lib/ui/host/host_settings_screen.dart`, `lib/main.dart` (router with named routes `intro, home, hostSettings, hostLobby, hostBoard, hostResult, playerJoin, playerRooms, playerBuzzer, bankSettings`)
-- Port from: `IntroScreen.kt`, `IntroPortraitScreen.kt`, `HomeScreen.kt`, `BankSettingsScreen.kt`, `HostSettingsScreen.kt`, `navigation/FeudNavGraph.kt` (route names, transitions: slide 340 ms + fade 240 ms), `MainActivity.kt` (full-screen, notch, orientation `fullUser`)
+- Port from: `IntroScreen.kt`, `IntroPortraitScreen.kt`, `HomeScreen.kt`, `BankSettingsScreen.kt`, `HostSettingsScreen.kt`, `navigation/NavGraph.kt` (route names, transitions: slide 340 ms + fade 240 ms), `MainActivity.kt` (full-screen, notch, orientation `fullUser`)
 
 - [ ] **Step 1: `main.dart`** — `WidgetsFlutterBinding`, `SystemChrome.setEnabledSystemUIMode(immersiveSticky)`, edge-to-edge, create `SettingsRepository`, `HostController`, `PlayerController` once; `AppScope` above `MaterialApp`; `onGenerateRoute` with the slide/fade `PageRouteBuilder`; `const demo = bool.fromEnvironment('DEMO')` → start at the gallery (Task 12) instead of intro.
 - [ ] **Step 2: Port the four screens.** Intro: both orientations' choreography with a `ShowClock`; tap → `Navigator.pushReplacementNamed('home')`. Host settings: the only scrolling screen; all steppers; bank filter count from `QuestionBank`; "كمّل للوبي" → `hostLobby`. Bank settings: `file_picker` (`FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json'])`) → `QuestionBank.parse` → `BankStore.save` or show the error list; "امسح البنك".
-- [ ] **Step 3: Android manifest** — `android:screenOrientation="fullUser"`, `INTERNET` permission, app label `مين الأطليسي`, `applicationId com.feudparty.app`, `minSdk 26`, `targetSdk 34`, version from pubspec; copy the launcher icon from `$K/app/src/main/res/mipmap-*`. iOS: `NSLocalNetworkUsageDescription` = "اللعبة بتتواصل مع أجهزة اللاعبين على نفس الواي فاي" and `NSBonjourServices` not needed.
+- [ ] **Step 3: Android manifest** — `android:screenOrientation="fullUser"`, `INTERNET` permission, app label `مين الأطليسي`, `applicationId معرّف التطبيق الأصلي`, `minSdk 26`, `targetSdk 34`, version from pubspec; copy the launcher icon from `$K/app/src/main/res/mipmap-*`. iOS: `NSLocalNetworkUsageDescription` = "اللعبة بتتواصل مع أجهزة اللاعبين على نفس الواي فاي" and `NSBonjourServices` not needed.
 - [ ] **Step 4: `flutter build apk --debug` succeeds; `flutter analyze` clean. Commit** `feat(ui): intro, home, bank and host settings screens with the router`.
 
 ---
@@ -430,7 +430,7 @@ BoxDecoration blockSkin(Color color, {double border = 4, double shadow = 6, doub
 
 **Files:**
 - Create: `lib/ui/host/host_lobby_screen.dart`, `lib/ui/player/player_join_screen.dart`, `lib/ui/player/room_list_screen.dart`, `lib/ui/player/player_lobby.dart`
-- Port from: `HostSetupScreen.kt`, `PlayerJoinScreen.kt`, `RoomListScreen.kt`, `PlayerScreen.kt` (`PlayerLobbyScreen`), `FeudNavGraph.kt` (HOST_SETUP / PLAYER_JOIN / PLAYER_ROOMS / lobby part of PLAYER_BUZZER)
+- Port from: `HostSetupScreen.kt`, `PlayerJoinScreen.kt`, `RoomListScreen.kt`, `PlayerScreen.kt` (`PlayerLobbyScreen`), `NavGraph.kt` (HOST_SETUP / PLAYER_JOIN / PLAYER_ROOMS / lobby part of PLAYER_BUZZER)
 
 New copy (the only UX additions, see spec §3):
 - Host lobby, under the room name: `"الواي فاي: ${ip.address}"` and `"كود الغرفة: ${code.arDigits()}"` in a `Pill`, and the muted line `"لازم الكل يكون على نفس الواي فاي أو نقطة اتصال المضيف"`. If `wifiIPv4()` is null: replace with `"افتح الواي فاي أو نقطة الاتصال"` and disable "استضافة".
@@ -447,7 +447,7 @@ New copy (the only UX additions, see spec §3):
 
 **Files:**
 - Create: `lib/ui/host/host_board_screen.dart`, `lib/ui/player/player_screen.dart`, `lib/ui/player/buzzer.dart`, `lib/ui/player/player_board.dart`, `lib/ui/player/play_or_pass.dart`, `lib/ui/show/round_opening.dart`
-- Port from: `HostGameBoardScreen.kt`, `PlayerScreen.kt`, `RoundOpeningScreen.kt`, `components/Buzzer.kt`, `FeudNavGraph.kt` (HOST_BOARD / PLAYER_BUZZER bodies)
+- Port from: `HostGameBoardScreen.kt`, `PlayerScreen.kt`, `RoundOpeningScreen.kt`, `components/Buzzer.kt`, `NavGraph.kt` (HOST_BOARD / PLAYER_BUZZER bodies)
 
 Specific behaviours to preserve (all in the Kotlin files — this list is what to double-check):
 - Host board: 8 slots always (`BOARD_SLOTS = 8`), one column portrait / two landscape, `PortraitBoardHeader` with the question card between time and strikes in landscape; judge bar: "غلط" (pink) or "بدّل السؤال" when `faceOffFailed`; `ROUND_END` bar: "اكشف الباقي" until all revealed, then `nextButtonLabel()`; strike flash overlay; slot tap = `judgeCorrect(index)` only when `canJudge()`.

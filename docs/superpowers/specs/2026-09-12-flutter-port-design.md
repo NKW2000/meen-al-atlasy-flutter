@@ -14,7 +14,7 @@
 | Transport | Host phone runs a WebSocket server (`dart:io`), players discover it by UDP broadcast, with a 5-digit room-code fallback. No native plugins for networking. |
 | Code layout | One Flutter package, four folders (`game`, `network`, `questions`, `ui`). The engine stays pure Dart by convention. |
 | State | `ChangeNotifier` + built-in `ListenableBuilder`. No state-management package. |
-| Repo | `C:\Projects\meen-al-atlasy-flutter`, own GitHub repo. Package `meen_al_atlasy`, Android `applicationId` `com.feudparty.app`, `versionCode` continues from 26. |
+| Repo | `C:\Projects\meen-al-atlasy-flutter`, own GitHub repo. Package `meen_al_atlasy`, Android `applicationId` نفس معرّف التطبيق الأصلي, `versionCode` continues from 26. |
 
 ## 2. Architecture
 
@@ -112,7 +112,7 @@ Shared pieces in `ui/components/`: `stage.dart` (`StageBackground`, `CartoonSurf
 
 ## 4. Build, tests, CI
 
-- Android `minSdk 26`, `targetSdk 34`, `applicationId com.feudparty.app`, debug signing for release when no keystore is configured (as today). A proper release keystore is a follow-up.
+- Android `minSdk 26`, `targetSdk 34`, `applicationId` نفس التطبيق الأصلي, debug signing for release when no keystore is configured (as today). A proper release keystore is a follow-up.
 - Fonts under `assets/fonts/` (OFL), declared in `pubspec.yaml`.
 - `flutter test` runs `test/game`, `test/network`, `test/questions`.
 - `.github/workflows/release.yml`: on tag `v*` — `flutter test`, `flutter build apk --release`, `flutter build apk --release --dart-define=DEMO=true` (renamed `-demo`), publish both to a GitHub Release. An `ios` job is written but gated with `if: false`.
