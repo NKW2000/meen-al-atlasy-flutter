@@ -22,6 +22,10 @@ abstract class PlayerTransport {
   ValueListenable<String?> get playerId;
   ValueListenable<TeamId?> get teamId;
 
+  /// آخر سبب رفض من المضيف ([Rejected]) — `null` لما ما في. بينمسح مع
+  /// كل اتصال جديد.
+  ValueListenable<String?> get rejection;
+
   /// [playerId] معرّف محفوظ من اتصال سابق يبعته المضيف بـ[Assigned] —
   /// مرّره بس لما هاي *فعلاً* إعادة اتصال لنفس اللاعب ([rejoin]). اتصال
   /// جديد لغرفة جديدة لازم يترك القيمة الافتراضية (`null`) — معرّفات
@@ -60,6 +64,8 @@ class PlayerClient implements PlayerTransport {
   final ValueNotifier<String?> playerId = ValueNotifier<String?>(null);
   @override
   final ValueNotifier<TeamId?> teamId = ValueNotifier<TeamId?>(null);
+  @override
+  final ValueNotifier<String?> rejection = ValueNotifier<String?>(null);
 
   WebSocket? _ws;
   InternetAddress? _lastHost;
@@ -83,11 +89,9 @@ class PlayerClient implements PlayerTransport {
     final previous = _ws;
     _ws = null;
     if (previous != null) {
-      try {
-        await previous.close();
-      } catch (_) {
-        // ما بيهمّنا خطأ إغلاق اتصال قديم عم نتخلّى عنه.
-      }
+      // الاتصال القديم غالباً نص ميت (هيك وصلنا لهون) — إغلاقه ممكن ينطر
+      // مهلة TCP كاملة، وهاد كان يأخّر الرجوع للعبة ثواني. ثانيتين وبنكمّل.
+      unawaited(_closeQuietly(previous));
     }
 
     _lastHost = host;
@@ -101,6 +105,7 @@ class PlayerClient implements PlayerTransport {
     // اتصال جديد ما بيورث حالة لعبة قديمة — اللاعب ما بيشوف لوح غرفة راحت
     // لحد ما توصل أول لقطة من المضيف الجديد.
     if (playerId == null) state.value = null;
+    rejection.value = null;
 
     status.value = ConnectionStatus.connecting;
     final WebSocket ws;
@@ -145,6 +150,10 @@ class PlayerClient implements PlayerTransport {
         case Assigned(:final playerId, :final teamId):
           this.playerId.value = playerId;
           this.teamId.value = teamId;
+        case Rejected(:final reason):
+          // المضيف بيسكّر الاتصال بعدها — منسجّل السبب قبل ما يوصل onDone،
+          // حتى المتحكّم يعرف إنه رفض مقصود مش انقطاع ويوقف محاولات الرجوع.
+          rejection.value = reason;
       }
     } catch (_) {
       // رسالة مشوّهة — نتجاهلها.
@@ -159,7 +168,12 @@ class PlayerClient implements PlayerTransport {
   /// بيبعت رسالة للمضيف عبر الاتصال الحالي.
   @override
   void send(ClientMessage m) {
-    _ws?.add(encodeClientMessage(m));
+    try {
+      _ws?.add(encodeClientMessage(m));
+    } catch (_) {
+      // الاتصال عم يسكّر بنفس اللحظة (ضغطة وصلت مع انقطاع) — الرمي هون
+      // كان يطلع لمعالج الضغطة بالواجهة كاستثناء غير ممسوك.
+    }
   }
 
   /// بيعيد الاتصال بآخر مضيف، وبيبعت انضمام جديد بنفس الاسم والفريق
@@ -190,9 +204,18 @@ class PlayerClient implements PlayerTransport {
     final ws = _ws;
     _ws = null;
     if (ws != null) {
-      await ws.close();
+      await _closeQuietly(ws);
     }
     status.value = ConnectionStatus.disconnected;
+  }
+
+  /// إغلاق بمهلة: مقبس ميت ما بيرد على المصافحة، وما منخلّي الواجهة تنطره.
+  static Future<void> _closeQuietly(WebSocket ws) async {
+    try {
+      await ws.close().timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // انقطع أصلاً، أو ما ردّ — النتيجة نفسها.
+    }
   }
 
   @override
@@ -211,6 +234,7 @@ class PlayerClient implements PlayerTransport {
   @override
   Future<void> dispose() async {
     await disconnect();
+    rejection.dispose();
     state.dispose();
     status.dispose();
     playerId.dispose();

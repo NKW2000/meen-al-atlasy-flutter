@@ -79,7 +79,7 @@ void main() {
 
     expect(vm.state.players.map((p) => p.id), contains('ep-b'));
     expect(
-      transport.sends.last,
+      transport.sends.where((s) => s.$2 is Assigned).last,
       equals(('ep-b', Assigned(playerId: 'ep-b', teamId: TeamId.team1))),
     );
   });
@@ -95,7 +95,7 @@ void main() {
     expect(state.playersOf(TeamId.team2).map((p) => p.id).toList(),
         equals(['ep-b', 'ep-d']));
     expect(
-      transport.sends,
+      transport.sends.where((s) => s.$2 is Assigned),
       equals([
         ('ep-a', Assigned(playerId: 'ep-a', teamId: TeamId.team1)),
         ('ep-b', Assigned(playerId: 'ep-b', teamId: TeamId.team2)),
@@ -103,6 +103,10 @@ void main() {
         ('ep-d', Assigned(playerId: 'ep-d', teamId: TeamId.team2)),
       ]),
     );
+    // وكل واحد أخد الحالة كاملة مباشرة بعد التعيين — مش بس عالبثّ.
+    for (final ep in ['ep-a', 'ep-b', 'ep-c', 'ep-d']) {
+      expect(transport.sends.any((s) => s.$1 == ep && s.$2 is StateUpdate), isTrue);
+    }
   });
 
   test('only the podium player of a team can buzz', () async {
@@ -289,7 +293,7 @@ void main() {
     expect(vm.state.player('ep-a')!.connected, isTrue);
     expect(vm.state.playersOf(TeamId.team1).length, equals(1));
     expect(
-      transport.sends.last,
+      transport.sends.where((s) => s.$2 is Assigned).last,
       equals(('ep-a-2', Assigned(playerId: 'ep-a', teamId: TeamId.team1))),
     );
   });
@@ -317,7 +321,7 @@ void main() {
     expect(reattached.connected, isTrue);
     expect(reattached.name, equals('اسم جديد'));
     expect(
-      transport.sends.last,
+      transport.sends.where((s) => s.$2 is Assigned).last,
       equals(('ep-a-new', Assigned(playerId: 'ep-a', teamId: TeamId.team1))),
     );
 
@@ -352,7 +356,7 @@ void main() {
     expect(vm.state.player('ep0')!.name, equals('ep0')); // ما تغيّر
     expect(vm.state.player('ep-other'), isNotNull); // لاعب جديد كليّاً
     expect(
-      transport.sends.last,
+      transport.sends.where((s) => s.$2 is Assigned).last,
       equals(('ep-other', Assigned(playerId: 'ep-other', teamId: TeamId.team2))),
     );
   });
@@ -402,7 +406,7 @@ void main() {
     vm.movePlayer('ep-a', TeamId.team2);
     expect(vm.state.player('ep-a')!.teamId, equals(TeamId.team2));
     expect(
-      transport.sends.last,
+      transport.sends.where((s) => s.$2 is Assigned).last,
       equals(('ep-a', Assigned(playerId: 'ep-a', teamId: TeamId.team2))),
     );
 
@@ -433,8 +437,9 @@ void main() {
     expect(vm.canChangeQuestion(), isFalse);
   });
 
-  test('startGame stops the beacon; backToLobby keeps the players, clears '
-      'the scores, and restarts the beacon', () async {
+  test('the beacon keeps running through the game (a killed app must find the '
+      'room to rejoin); backToLobby keeps the players and clears the scores',
+      () async {
     final vm = controller();
     await vm.startHosting();
     join(transport, ['سامر', 'ليلى']);
@@ -443,7 +448,7 @@ void main() {
     expect(beacon.running, isTrue);
     vm.startGame();
     await pump();
-    expect(beacon.running, isFalse);
+    expect(beacon.running, isTrue);
 
     await vm.backToLobby();
     await pump();
@@ -573,8 +578,8 @@ void main() {
     await vm.resetSession();
 
     expect(transport.stopCalls, equals(1));
-    // startGame() وقف المنارة أصلاً، وresetSession() بيوقفها (تاني) للتأكد.
-    expect(beacon.stopCalls, equals(2));
+    // المنارة بتضل شغّالة طول اللعبة — resetSession() هو اللي بيوقفها.
+    expect(beacon.stopCalls, equals(1));
     expect(beacon.running, isFalse);
     expect(vm.advertising, isFalse);
     expect(vm.state.players, isEmpty);
@@ -709,6 +714,62 @@ void main() {
 
     expect(vm.state.players.map((p) => p.name), ['ep-a', 'اسم جديد']);
     expect(vm.state.players.map((p) => p.seat), [1, 1]);
+  });
+
+  test('a late joiner is told why before the door closes', () async {
+    final vm = controller();
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+
+    transport.emit(ClientMessageReceived('ep-late', JoinMessage(playerName: 'متأخّر')));
+    await pump();
+
+    expect(transport.closed, contains('ep-late'));
+    final toLate = transport.sends.where((s) => s.$1 == 'ep-late').map((s) => s.$2);
+    expect(toLate, contains(isA<Rejected>()));
+    expect(vm.state.players, hasLength(2));
+  });
+
+  test('an event that changes nothing is not broadcast', () async {
+    final vm = controller();
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+    final before = transport.broadcasts.length;
+
+    // لاعب مش عالمنصة بيدوس عشر مرات — ولا حزمة للكل.
+    for (var i = 0; i < 10; i++) {
+      buzz(transport, 'ep-b'); // ep-b عالمنصة فعلاً؟ تأكيد تحت.
+    }
+    await pump();
+    // أول ضغطة من لاعب المنصة بتغيّر الحالة (قفل الزر) — وبس هي.
+    final armed = vm.state.buzzedPlayerId;
+    expect(armed, 'ep-b');
+    expect(transport.broadcasts.length, before + 1);
+  });
+
+  test('a fresh answer turn restarts the clock so the first tick is a full '
+      'second away', () async {
+    final vm = controller(tick: const Duration(milliseconds: 100));
+    join(transport, ['ep-a', 'ep-b']);
+    await pump();
+    vm.startGame();
+    // خلّي الساعة القديمة توصل لنص فترتها.
+    await Future.delayed(const Duration(milliseconds: 60));
+
+    buzz(transport, 'ep-a'); // نافذة جواب جديدة — الساعة لازم تبلّش من الصفر
+    await pump();
+    final limit = vm.state.answerLimitSeconds;
+    expect(vm.state.answerSecondsLeft, limit);
+
+    // بعد ٦٠ ملي (أقل من فترة كاملة) ما لازم تكون نزلت — لو ما اتعادت
+    // الساعة كانت الفترة القديمة بتخلص هون وتاكل ثانية.
+    await Future.delayed(const Duration(milliseconds: 60));
+    expect(vm.state.answerSecondsLeft, limit);
+
+    await Future.delayed(const Duration(milliseconds: 60));
+    expect(vm.state.answerSecondsLeft, limit - 1);
   });
 
   test('endGame stops the clock', () async {

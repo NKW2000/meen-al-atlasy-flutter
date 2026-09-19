@@ -71,6 +71,10 @@ abstract class HostTransport {
 /// التنفيذ الحقيقي لـ [HostTransport] فوق `dart:io` — `HttpServer` +
 /// `WebSocketTransformer` بلا أي حزمة شبكة خارجية.
 class HostServer implements HostTransport {
+  /// أقصى عدد اتصالات بنفس الوقت — غرفة كبيرة ١٨، وهاد سقف ضد جهاز على
+  /// الشبكة يفتح آلاف الاتصالات ويخنق جهاز المضيف.
+  static const int maxConnections = 64;
+
   HttpServer? _server;
   final Map<String, WebSocket> _sockets = {};
   StreamController<ClientEvent> _events = StreamController<ClientEvent>.broadcast();
@@ -114,6 +118,11 @@ class HostServer implements HostTransport {
       // بمحاولة إضافة حدث لدفق مسكّر.
       if (_events.isClosed || _server == null) {
         await ws.close(1001);
+        return;
+      }
+
+      if (_sockets.length >= maxConnections) {
+        await ws.close(1013); // try again later
         return;
       }
 
@@ -161,8 +170,14 @@ class HostServer implements HostTransport {
   Future<void> close(String endpointId) async {
     final ws = _sockets.remove(endpointId);
     if (ws == null) return;
+    await _closeQuietly(ws, 1000);
+  }
+
+  /// إغلاق بمهلة — جهاز ميت ما بيرد على مصافحة الإغلاق، وما منخلّي
+  /// «لعبة جديدة» تنطره.
+  static Future<void> _closeQuietly(WebSocket ws, int code) async {
     try {
-      await ws.close(1000);
+      await ws.close(code).timeout(const Duration(seconds: 2));
     } catch (_) {}
   }
 
@@ -184,9 +199,8 @@ class HostServer implements HostTransport {
     // بالمنتصف وتعدّل الخريطة ونحنا لسا عم نكرّر عليها.
     final sockets = _sockets.values.toList();
     _sockets.clear();
-    for (final ws in sockets) {
-      await ws.close(1001);
-    }
+    // كلهم مع بعض، مش واحد ورا التاني — ١٨ جهاز × مهلة كانت تعمل انتظار طويل.
+    await Future.wait([for (final ws in sockets) _closeQuietly(ws, 1001)]);
     await _server?.close(force: true);
     _server = null;
     await _events.close();

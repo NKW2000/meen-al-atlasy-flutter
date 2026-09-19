@@ -56,6 +56,8 @@ class _NoopPlayerTransport implements PlayerTransport {
   @override
   final ValueNotifier<TeamId?> teamId = ValueNotifier(null);
   @override
+  final ValueNotifier<String?> rejection = ValueNotifier(null);
+  @override
   Future<void> connect({
     required InternetAddress host,
     required int port,

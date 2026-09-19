@@ -48,6 +48,23 @@ class PlayerController extends ChangeNotifier {
     client.status.addListener(_onChanged);
     client.playerId.addListener(_onChanged);
     client.teamId.addListener(_onChanged);
+    client.rejection.addListener(_onRejected);
+  }
+
+  /// المضيف رفضنا (اللعبة بلّشت مثلاً): ما منحاول نرجع، ومنرجّع اللاعب
+  /// للستة مع السبب — بدل خمس محاولات فاشلة و«انقطعت عن اللعبة».
+  void _onRejected() {
+    final reason = client.rejection.value;
+    if (reason == null) return;
+    _rejected = true;
+    _leftOnPurpose = true;
+    _reconnecting = false;
+    _rejoinAttempt = 0;
+    _rejoinTimer?.cancel();
+    _rejoinTimer = null;
+    _lastError = reason;
+    unawaited(client.leave().then((_) => startDiscovery()));
+    notifyListeners();
   }
 
   /// الاسم اللي كتبه اللاعب — بينحفظ لحد ما يصير في اتصال، لأن اللاعب
@@ -68,6 +85,9 @@ class PlayerController extends ChangeNotifier {
   /// اللاعب طلع بإرادته — ما منحاول نرجّعه.
   bool _leftOnPurpose = false;
 
+  /// المضيف رفضنا — الشاشة بترجع للستة الغرف (بينمسح مع أول اتصال جديد).
+  bool _rejected = false;
+
   List<Room> _rooms = [];
   String? _lastError;
 
@@ -75,6 +95,9 @@ class PlayerController extends ChangeNotifier {
 
   /// عم نرجع للعبة لحالنا — الشاشة بتقول «عم نرجّعك…» بدل ما تسأل فوراً.
   bool get reconnecting => _reconnecting;
+
+  /// المضيف رفض انضمامنا (شوف [_onRejected]).
+  bool get rejected => _rejected;
 
   /// كم مرة منحاول نرجع لحالنا قبل ما نسأل اللاعب. انقطاع الواي فاي
   /// القصير (جهاز نام، أو إشارة ضعيفة لثانية) بيخلص قبل هالمدة، فاللاعب
@@ -169,6 +192,7 @@ class PlayerController extends ChangeNotifier {
   Future<void> _connect(InternetAddress host, int port, String name) async {
     // اتصال جديد = بداية نظيفة لعدّاد المحاولات.
     _leftOnPurpose = false;
+    _rejected = false;
     _rejoinAttempt = 0;
     try {
       await client.connect(
@@ -324,6 +348,7 @@ class PlayerController extends ChangeNotifier {
     client.status.removeListener(_onChanged);
     client.playerId.removeListener(_onChanged);
     client.teamId.removeListener(_onChanged);
+    client.rejection.removeListener(_onRejected);
     unawaited(client.disconnect());
     unawaited(discovery.stop());
     super.dispose();

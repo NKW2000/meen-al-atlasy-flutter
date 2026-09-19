@@ -24,6 +24,8 @@ class FakePlayerTransport implements PlayerTransport {
   final ValueNotifier<String?> playerId = ValueNotifier<String?>(null);
   @override
   final ValueNotifier<TeamId?> teamId = ValueNotifier<TeamId?>(null);
+  @override
+  final ValueNotifier<String?> rejection = ValueNotifier<String?>(null);
 
   final List<ClientMessage> sent = [];
   final List<(InternetAddress, int, String, TeamId?, String?)> connectCalls = [];
@@ -368,6 +370,23 @@ void main() {
     expect(transport.rejoinCalls, 6);
     expect(controller.status, ConnectionStatus.connected);
   }, timeout: const Timeout(Duration(seconds: 40)));
+
+  test('a rejection from the host stops the retries and shows the reason',
+      () async {
+    await connect();
+    controller.join('ليلى');
+
+    // المضيف رفض (اللعبة بلّشت) وبعدها سكّر الاتصال.
+    transport.rejection.value = 'اللعبة بلّشت — ما في انضمام هلق';
+    transport.status.value = ConnectionStatus.disconnected;
+    await Future.delayed(const Duration(milliseconds: 1400));
+
+    expect(transport.rejoinCalls, 0, reason: 'رفض مقصود مش انقطاع');
+    expect(controller.reconnecting, isFalse);
+    expect(controller.lastError, 'اللعبة بلّشت — ما في انضمام هلق');
+    // ورجع يدوّر عالغرف — مش «انقطعت عن اللعبة».
+    expect(controller.discovering, isTrue);
+  });
 
   test('rejoin does nothing before a name was ever set', () async {
     await controller.rejoin();

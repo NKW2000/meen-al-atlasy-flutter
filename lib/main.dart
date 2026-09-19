@@ -517,6 +517,9 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
   bool _showLeft = false;
   ConnectionStatus? _lastStatus;
 
+  /// رجعنا للستة الغرف بعد رفض — مرة وحدة.
+  bool _navigated = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -530,6 +533,15 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
   /// `LaunchedEffect(status) { if (DISCONNECTED) showLeft = true }`.
   void _onPlayerChanged() {
     final player = _player!;
+    // المضيف رفضنا (اللعبة بلّشت): منرجع للستة الغرف مع السبب — مش
+    // حوار «انقطعت عن اللعبة» عن لعبة ما كنا جوّاها.
+    if (player.rejected && !_navigated) {
+      _navigated = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pushReplacementNamed('playerRooms');
+      });
+      return;
+    }
     // خلصت محاولات الرجوع التلقائي وما زبطت — هلق منسأل.
     if (!player.reconnecting &&
         player.status == ConnectionStatus.disconnected &&

@@ -201,9 +201,9 @@ class HostController extends ChangeNotifier {
     if (!canStart) return;
     _started = true;
     _applyAndBroadcast(const StartGame());
-    // المنارة ما عاد لازمة بعد ما بلّشت اللعبة — اللاعبين المتّصلين أصلاً
-    // بيضلوا متّصلين، وأي إعادة اتصال بترجع لنفس عنوان المضيف المحفوظ.
-    unawaited(beacon.stop());
+    // المنارة بتضل شغّالة: لاعب سكّر التطبيق كليّاً بنص اللعبة لازم يلاقي
+    // الغرفة باللستة حتى يرجع لمكانه باسمه — الانضمام الجديد بينرفض أصلاً
+    // بـ[_addPlayer]، فما في ضرر إنه الغرفة تضل ظاهرة.
     _startClock();
     notifyListeners();
   }
@@ -310,6 +310,7 @@ class HostController extends ChangeNotifier {
     // جديد بنص الجولة كان بياخد رقم وبيغيّر مين عالمنصة، وممكن يكون أي
     // جهاز غريب عالشبكة. منسكّر اتصاله وبيشوف عنده إنه انقطع.
     if (reattachId == null && _started) {
+      server.send(endpointId, Rejected(reason: 'اللعبة بلّشت — ما في انضمام هلق'));
       unawaited(server.close(endpointId));
       return;
     }
@@ -332,6 +333,9 @@ class HostController extends ChangeNotifier {
 
     server.send(endpointId, Assigned(playerId: playerId, teamId: teamId));
     _applyAndBroadcast(PlayerJoined(playerId, name, teamId));
+    // اللي انضم هلق بدّه الحالة كاملة مهما صار: البثّ فوق بيمشي بس لو تغيّر
+    // إشي، وبسباق الرجوع (اتصال جديد قبل إشعار انقطاع القديم) ما بيتغيّر.
+    server.send(endpointId, StateUpdate(state: _engine.state.maskedForPlayers()));
   }
 
   /// دفاع إضافي (بند حرج #٢-ب بالمراجعة): معرّفات نقاط النهاية
@@ -432,8 +436,19 @@ class HostController extends ChangeNotifier {
   }
 
   void _applyAndBroadcast(GameEvent event) {
+    final before = _engine.state;
     final newState = _engine.apply(event);
+    // حدث ما غيّر إشي (ضغطة من لاعب مش عالدور مثلاً) — ما في شي نبثّه.
+    // بدون هالحارس كل كبسة فاضية كانت تبعت الحالة كاملة لـ١٨ جهاز.
+    if (newState == before) return;
     _noteQuestionShown(newState);
+    // دور جواب جديد: منعيد تشغيل الساعة حتى تجي أول ثانية بعد ثانية كاملة
+    // — مش بعد جزء من ثانية حسب وين كانت الساعة القديمة (كان اللاعب ممكن
+    // يخسر لحد ثانية من وقته بالصدفة).
+    if (newState.answerTurn != before.answerTurn && _clockTimer != null) {
+      _stopClock();
+      _startClock();
+    }
     server.broadcast(StateUpdate(state: newState.maskedForPlayers()));
     notifyListeners();
   }

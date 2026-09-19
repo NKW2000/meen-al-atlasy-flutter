@@ -206,6 +206,8 @@ sealed class HostMessage {
             answerSecondsLeft: json['answerSecondsLeft'] as int,
             choiceSecondsLeft: json['choiceSecondsLeft'] as int,
           );
+        case 'rejected':
+          return Rejected(reason: json['reason'] as String);
         default:
           throw FormatException('Unknown HostMessage type: $type');
       }
@@ -264,6 +266,26 @@ class ClockUpdate extends HostMessage {
 
   @override
   int get hashCode => Object.hash(answerSecondsLeft, choiceSecondsLeft);
+}
+
+/// المضيف رفض الانضمام (اللعبة بلّشت مثلاً) وبيسكّر الاتصال بعدها.
+///
+/// بدونها كان اللاعب الجديد يشوف الاتصال بيسكّر بلا سبب، وتطبيقه يحاول
+/// يرجع خمس مرات ويسأله «انقطعت عن اللعبة» — وهو ما كان جوّاها أصلاً.
+class Rejected extends HostMessage {
+  final String reason;
+
+  Rejected({required this.reason});
+
+  @override
+  Map<String, dynamic> toJson() => {'type': 'rejected', 'reason': reason};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is Rejected && other.reason == reason);
+
+  @override
+  int get hashCode => reason.hashCode;
 }
 
 /// المضيف عيّن لاعب لفريق ما.
