@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.feudparty.meen_al_atlasy"
+    namespace = "io.github.nkw2000.meenalatlasy"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -17,9 +17,9 @@ android {
     }
 
     defaultConfig {
-        // نفس applicationId التطبيق الأصلي (Kotlin) — استمرارية على نفس
-        // البصمة لمتاجر التطبيقات.
-        applicationId = "com.feudparty.app"
+        // معرّف التطبيق الخاص بهالمشروع (تغيّر عن المشروع الأصلي بالإصدار
+        // ٠٫١٢٫٠ — النسخة القديمة بتتركّب جنبه كتطبيق تاني ولازم تنشال).
+        applicationId = "io.github.nkw2000.meenalatlasy"
         // نفس حدود المشروع الأصلي: minSdk 26 (أندرويد ٨) وtargetSdk 34.
         minSdk = 26
         targetSdk = 34

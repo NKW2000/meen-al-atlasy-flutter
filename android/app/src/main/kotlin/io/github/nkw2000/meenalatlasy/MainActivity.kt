@@ -1,4 +1,4 @@
-package com.feudparty.meen_al_atlasy
+package io.github.nkw2000.meenalatlasy
 
 import android.content.Context
 import android.net.wifi.WifiManager
