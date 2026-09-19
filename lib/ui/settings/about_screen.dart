@@ -207,7 +207,7 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '• الأصوات: مركّبة خصيصاً لهاللعبة، مع عيّنات CC0 من Kenney (kenney.nl).',
+                          '• الأصوات: تسجيلات مجانية للاستعمال التجاري من Mixkit (mixkit.co) وKenney (CC0)، مخلوطة ومعالجة لهاللعبة.',
                           style: body,
                         ),
                         const SizedBox(height: 6),

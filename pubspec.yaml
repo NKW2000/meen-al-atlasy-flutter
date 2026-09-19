@@ -1,7 +1,7 @@
 name: meen_al_atlasy
 description: "مين الأطليسي — لعبة سهرات عربية: سؤال وأجوبته مرتّبة حسب شيوعها، فريقين وجهاز لكل لاعب."
 publish_to: 'none'
-version: 0.13.2+55
+version: 0.14.0+56
 
 environment:
   sdk: ^3.13.3
