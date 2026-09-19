@@ -4,6 +4,7 @@
 /// اختيار الغرفة عبر `enterRoom` بدل `enterRoom(endpointId)`.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -44,7 +45,7 @@ class FakePlayerTransport implements PlayerTransport {
     String? playerId,
   }) async {
     connectCalls.add((host, port, playerName, teamId, playerId));
-    if (throwOnConnect) throw Exception('تعذّر الاتصال');
+    if (throwOnConnect) throw TimeoutException('ws connect');
     status.value = ConnectionStatus.connected;
   }
 
@@ -246,7 +247,10 @@ void main() {
 
     await controller.enterRoom(Room('غرفة', InternetAddress.loopbackIPv4, 4000));
 
-    expect(controller.lastError, equals('تعذّر الاتصال بالمضيف'));
+    // بلغة الناس، مع تلميح — ولا أثر لنص الاستثناء.
+    expect(controller.lastError, 'الاتصال بالمضيف أخد وقت طويل وما ردّ حدا');
+    expect(controller.lastErrorHint, isNotNull);
+    expect(controller.lastError, isNot(contains('Exception')));
     expect(controller.status, isNot(ConnectionStatus.connected));
     // البحث رجع لحاله — مش لازم يطلع ويرجع يفوت حتى يشوف الغرف.
     expect(controller.discovering, isTrue);
@@ -404,7 +408,8 @@ void main() {
 
     await c.enterCode('12345');
 
-    expect(c.lastError, equals('افتح الواي فاي أو نقطة الاتصال'));
+    expect(c.lastError, 'ما في شبكة');
+    expect(c.lastErrorHint, 'افتح الواي فاي أو نقطة الاتصال');
     expect(transport.connectCalls, isEmpty);
   });
 

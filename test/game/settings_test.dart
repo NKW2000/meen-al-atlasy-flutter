@@ -36,7 +36,7 @@ void main() {
     expect(settings.strikesToSteal, GameSettings.minStrikes);
   });
 
-  test("an empty multiplier list falls back to the show's defaults", () {
+  test("an empty multiplier list falls back to the game's defaults", () {
     expect(
       GameSettings(multipliers: const []).clamped().multipliers,
       GameSettings.defaultMultipliers,

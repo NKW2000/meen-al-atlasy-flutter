@@ -21,6 +21,7 @@ import '../network/messages.dart';
 import '../network/player_client.dart';
 import '../network/room_code.dart';
 import '../network/room_discovery.dart';
+import 'user_error.dart';
 
 int _defaultClock() => DateTime.now().millisecondsSinceEpoch;
 
@@ -62,7 +63,7 @@ class PlayerController extends ChangeNotifier {
     _rejoinAttempt = 0;
     _rejoinTimer?.cancel();
     _rejoinTimer = null;
-    _lastError = reason;
+    _lastError = UserError(reason, hint: 'استنّى المضيف يفتح غرفة جديدة');
     unawaited(client.leave().then((_) => startDiscovery()));
     notifyListeners();
   }
@@ -89,7 +90,7 @@ class PlayerController extends ChangeNotifier {
   bool _rejected = false;
 
   List<Room> _rooms = [];
-  String? _lastError;
+  UserError? _lastError;
 
   bool get discovering => _discovering;
 
@@ -111,7 +112,11 @@ class PlayerController extends ChangeNotifier {
   ConnectionStatus get status => client.status.value;
   String? get playerId => client.playerId.value;
   TeamId? get teamId => client.teamId.value;
-  String? get lastError => _lastError;
+  /// عنوان آخر خطأ — بلغة الناس، مش نص الاستثناء.
+  String? get lastError => _lastError?.title;
+
+  /// شو يعمل اللاعب — اختياري.
+  String? get lastErrorHint => _lastError?.hint;
   String? get pendingName => _pendingName;
 
   /// بيسجّل الاسم وبيبلّش يدوّر على الغرف — بدون ما يتصل بوحدة. إذا كنا
@@ -148,7 +153,7 @@ class PlayerController extends ChangeNotifier {
       }
       if (!_discovering) return; // وقف البحث بهالأثناء
     }
-    _lastError = 'تعذّر البحث عن الغرف — تأكد إنه الواي فاي شغّال';
+    _lastError = const UserError('ما قدرنا ندوّر عالغرف', hint: 'تأكد إنه الواي فاي شغّال');
     notifyListeners();
   }
 
@@ -172,13 +177,13 @@ class PlayerController extends ChangeNotifier {
   Future<void> enterCode(String code) async {
     final myIp = await localIp();
     if (myIp == null) {
-      _lastError = 'افتح الواي فاي أو نقطة الاتصال';
+      _lastError = const UserError('ما في شبكة', hint: 'افتح الواي فاي أو نقطة الاتصال');
       notifyListeners();
       return;
     }
     final host = decodeRoomCode(code, myIp);
     if (host == null) {
-      _lastError = 'كود الغرفة مش صحيح';
+      _lastError = const UserError('كود الغرفة مش صحيح', hint: 'خمس أرقام متل ما مكتوبة عند المضيف');
       notifyListeners();
       return;
     }
@@ -202,8 +207,8 @@ class PlayerController extends ChangeNotifier {
         teamId: _pendingTeam,
       );
       _lastError = null;
-    } catch (_) {
-      _lastError = 'تعذّر الاتصال بالمضيف';
+    } catch (e) {
+      _lastError = describeError(e, what: 'الاتصال بالمضيف');
       // البحث وقف قبل الاتصال — منرجّعه حتى ترجع لستة الغرف لحالها بدل ما
       // يضطر اللاعب يطلع من الشاشة ويرجع.
       await startDiscovery();
@@ -278,8 +283,8 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
     try {
       await client.rejoin();
-    } catch (_) {
-      _lastError = 'تعذّر الاتصال بالمضيف';
+    } catch (e) {
+      _lastError = describeError(e, what: 'الرجوع للعبة');
       notifyListeners();
     }
   }

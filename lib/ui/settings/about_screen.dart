@@ -124,7 +124,7 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'لعبة سهرات عربية على طريقة «فاميلي فيود»: جهاز واحد بيصير لوح '
+                          'لعبة سهرات عربية: سؤال وأجوبته مرتّبة حسب شيوعها. جهاز واحد بيصير لوح '
                           'النتائج عند المضيف، وكل لاعب بيفوت من تلفونه. فريقين، مواجهة، '
                           'أخطاء، سرقة، ونقاط.',
                           style: muted,
@@ -214,11 +214,6 @@ class _AboutScreenState extends State<AboutScreen> {
                         Text(
                           '• بنك الأسئلة المرفق: من تأليف التطبيق.',
                           style: body,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '• «فاميلي فيود» علامة تجارية لأصحابها، وهالتطبيق مش تابع إلهم.',
-                          style: muted,
                         ),
                         const SizedBox(height: 10),
                         SizedBox(

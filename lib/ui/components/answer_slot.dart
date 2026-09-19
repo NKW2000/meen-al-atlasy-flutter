@@ -236,8 +236,7 @@ class _AnswerSlotRowState extends State<AnswerSlotRow>
                       numberColor: FeudColors.gold,
                       numberInk: FeudColors.ink,
                     )
-                  // عند اللاعب الخانة المخفية رقم بنصّها وبس — زي لوح
-                  // «فاميلي فيود» الحقيقي.
+                  // عند اللاعب الخانة المخفية رقم بنصّها وبس.
                   : _HiddenFace(position: widget.position),
             ),
           ),
@@ -322,7 +321,7 @@ class _SlotFace extends StatelessWidget {
 }
 
 /// الوجه المخفي عند اللاعب: رقم الخانة بشارة ذهبية بنصّ البلوك، بدون نص
-/// ولا نقاط — زي لوح «فاميلي فيود» الحقيقي.
+/// ولا نقاط.
 class _HiddenFace extends StatelessWidget {
   final int position;
 

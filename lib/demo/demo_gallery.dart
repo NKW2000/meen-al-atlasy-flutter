@@ -18,6 +18,7 @@ import '../game/settings.dart';
 import '../network/player_client.dart';
 import '../network/room_discovery.dart';
 import '../ui/components/confirm_dialog.dart';
+import '../ui/components/error_snackbar.dart';
 import '../ui/components/name_prompt_dialog.dart';
 import '../ui/components/stage.dart';
 import '../ui/home/home_screen.dart';
@@ -257,6 +258,32 @@ List<_DemoScreen> _demoScreens(
         onPick: (_) {},
         onEnterCode: () {},
         onBack: () {},
+      ),
+    ),
+    _DemoScreen(
+      'خطأ اتصال',
+      // نفس بلوك الخطأ اللي بيطلع فوق أي شاشة — هون فوق لستة الغرف.
+      (_) => Stack(
+        fit: StackFit.expand,
+        children: [
+          RoomListScreen(
+            playerName: 'عبد الرحمن',
+            rooms: rooms,
+            onPick: (_) {},
+            onEnterCode: () {},
+            onBack: () {},
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 70,
+            child: ErrorBanner(
+              message: 'المضيف ما عم يستقبل — اللعبة مسكّرة عنده',
+              hint: 'خلّي المضيف يفتح الغرفة، وبعدها جرّب تاني',
+              onDismiss: () {},
+            ),
+          ),
+        ],
       ),
     ),
     _DemoScreen(

@@ -20,6 +20,7 @@ import '../game/models.dart';
 import '../network/host_server.dart';
 import '../network/messages.dart';
 import '../network/room_beacon.dart';
+import 'user_error.dart';
 
 /// اسم الغرفة الافتراضي — نفس `DEFAULT_ROOM_NAME` بـ`HostViewModel.kt`.
 String defaultHostRoomName() => 'غرفة مين الأطليسي';
@@ -79,7 +80,7 @@ class HostController extends ChangeNotifier {
   /// حارس ضد نداء `startHosting` مرتين — نفس `_advertising` بالأصل.
   bool _advertising = false;
 
-  String? _lastError;
+  UserError? _lastError;
 
   /// عدّاد الثواني بيمشي بجهاز المضيف بس.
   Timer? _clockTimer;
@@ -106,7 +107,11 @@ class HostController extends ChangeNotifier {
 
   bool get advertising => _advertising;
 
-  String? get lastError => _lastError;
+  /// عنوان آخر خطأ — بلغة الناس، مش نص الاستثناء.
+  String? get lastError => _lastError?.title;
+
+  /// شو يعمل المضيف — اختياري.
+  String? get lastErrorHint => _lastError?.hint;
 
   /// لعبة جديدة: بنسكّر الاتصالات القديمة وبنرجع الحالة من الصفر. بدونها
   /// بيرجع المضيف على نفس اللوبي القديم بنفس اللاعبين والنقاط.
@@ -135,7 +140,7 @@ class HostController extends ChangeNotifier {
       try {
         await beacon.start(roomName: roomName(), port: server.port);
       } catch (e) {
-        _lastError = 'تعذّر بثّ الغرفة: $e';
+        _lastError = describeError(e, what: 'بثّ الغرفة');
       }
     }
     notifyListeners();
@@ -176,7 +181,7 @@ class HostController extends ChangeNotifier {
       _sub = server.events.listen(_onClientEvent);
       await beacon.start(roomName: roomName(), port: server.port);
     } catch (e) {
-      _lastError = 'تعذّر بدء الاستضافة: $e';
+      _lastError = describeError(e, what: 'بدء الاستضافة');
       _advertising = false;
     }
     notifyListeners();

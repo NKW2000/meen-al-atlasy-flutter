@@ -62,10 +62,23 @@ Future<void> main() async {
   ErrorWidget.builder = (details) => Material(
     color: FeudColors.pink,
     child: Padding(
-      padding: const EdgeInsets.all(8),
-      child: Text(
-        'خطأ بالعرض: ${details.exception}',
-        style: const TextStyle(color: FeudColors.cream, fontSize: 12),
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'صار خطأ بعرض هالجزء',
+            style: TextStyle(color: FeudColors.cream, fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          // التفصيل التقني بخط صغير — لتصويره وإرساله، مش للقراءة.
+          Text(
+            '${details.exception}',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: FeudColors.cream.withValues(alpha: 0.7), fontSize: 10),
+          ),
+        ],
       ),
     ),
   );
@@ -398,6 +411,7 @@ class _HostLobbyRouteState extends State<_HostLobbyRoute> {
       listenable: host,
       builder: (context, _) => ErrorSnackbar(
         message: host.lastError,
+        hint: host.lastErrorHint,
         onShown: host.dismissError,
         child: HostLobbyScreen(
           roomName: scope.settings.roomName,
@@ -467,6 +481,7 @@ class _PlayerRoomsRouteState extends State<_PlayerRoomsRoute> {
       listenable: player,
       builder: (context, _) => ErrorSnackbar(
         message: player.lastError,
+        hint: player.lastErrorHint,
         onShown: player.dismissError,
         child: Stack(
           fit: StackFit.expand,
@@ -608,6 +623,7 @@ class _PlayerBuzzerRouteState extends State<_PlayerBuzzerRoute> {
               paused: live?.clockPaused ?? false,
               child: ErrorSnackbar(
                 message: player.lastError,
+                hint: player.lastErrorHint,
                 onShown: player.dismissError,
                 child: Stack(
                   fit: StackFit.expand,
@@ -721,6 +737,7 @@ class _HostBoardRouteState extends State<_HostBoardRoute> {
               paused: state.clockPaused,
               child: ErrorSnackbar(
                 message: host.lastError,
+                hint: host.lastErrorHint,
                 onShown: host.dismissError,
                 child: Stack(
                   fit: StackFit.expand,
